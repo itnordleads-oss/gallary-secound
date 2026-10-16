@@ -1,10 +1,24 @@
 import * as THREE from "three";
 
 const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function stubFavoritesWire() {
+  window.BrewnnsFavorites = { wireTimeline() {} };
+}
+
 if (prefersReduced) {
   document.documentElement.dataset.webgl = "off";
+  document.documentElement.dataset.favRender = "css";
+  stubFavoritesWire();
 } else {
-  bootWorld();
+  try {
+    bootWorld();
+  } catch (error) {
+    console.error("Brewnns WebGL world failed to start:", error);
+    document.documentElement.dataset.webgl = "off";
+    document.documentElement.dataset.favRender = "css";
+    stubFavoritesWire();
+  }
 }
 
 function bootWorld() {
@@ -15,6 +29,7 @@ function bootWorld() {
 
   const lowPower =
     window.matchMedia("(max-width: 980px)").matches
+    || window.matchMedia("(pointer: coarse)").matches
     || window.matchMedia("(prefers-reduced-data: reduce)").matches
     || (navigator.hardwareConcurrency || 8) <= 4;
   const segments = lowPower ? 28 : 48;
@@ -33,6 +48,9 @@ function bootWorld() {
   const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.55, metalness: 0.02 });
 
   const hero = createStage(heroCanvas, { fov: 28, z: 7.2, lowPower });
+  if (!hero) {
+    throw new Error("Hero WebGL stage failed to initialize.");
+  }
   const cup = makeCup(paper, black, sleeveTexture(), segments);
   const bag = makeBag(cream, bagTexture());
   cup.position.set(-0.35, 0.05, 0.2);
@@ -43,16 +61,35 @@ function bootWorld() {
   hero.group = { cup, bag };
 
   const clock = createStage(clockCanvas, { fov: 30, z: 5.4, lowPower });
+  if (!clock) {
+    throw new Error("Clock WebGL stage failed to initialize.");
+  }
   const iced = makeIcedDrink(black, lowPower ? 24 : 40);
   clock.scene.add(warmLights(1.15), iced);
   clock.group = { iced };
 
-  const city = createStage(cityCanvas, { fov: 32, z: 8.4, lowPower });
+  const city = createStage(cityCanvas, {
+    fov: lowPower ? 40 : 32,
+    z: lowPower ? 5.8 : 8.4,
+    lowPower,
+  });
+  if (!city) {
+    throw new Error("City WebGL stage failed to initialize.");
+  }
   const cityCup = makeCup(paper, black, sleeveTexture(), segments);
-  cityCup.scale.setScalar(1.25);
-  cityCup.position.set(2.85, -3.2, 0);
-  cityCup.rotation.set(0.18, -0.45, -0.28);
-  const beans = makeBeans(lowPower ? 20 : 42);
+  if (lowPower) {
+    cityCup.scale.setScalar(1.12);
+    cityCup.position.set(0, -2.4, 0.15);
+    cityCup.rotation.set(0.12, -0.38, -0.18);
+    city.focusObject = cityCup;
+    city.camera.position.set(0, 0.15, 5.8);
+    city.camera.lookAt(0, -0.35, 0);
+  } else {
+    cityCup.scale.setScalar(1.25);
+    cityCup.position.set(2.85, -3.2, 0);
+    cityCup.rotation.set(0.18, -0.45, -0.28);
+  }
+  const beans = makeBeans(lowPower ? 18 : 42, lowPower);
   city.scene.add(cityLights(), cityCup, beans.mesh);
   city.group = { cityCup, beans };
 
@@ -85,15 +122,15 @@ function bootWorld() {
   };
   gsap.to(cupPose, {
     scrollTrigger: heroScroll,
-    y: lowPower ? 2.8 : 3.6,
-    ry: -0.62,
-    rz: -0.16,
+    y: lowPower ? 1.05 : 3.6,
+    ry: lowPower ? -0.48 : -0.62,
+    rz: lowPower ? -0.1 : -0.16,
     ease: "none",
   });
   gsap.to(bagPose, {
     scrollTrigger: heroScroll,
-    y: lowPower ? 2.5 : 3.2,
-    x: 1.15,
+    y: lowPower ? 0.85 : 3.2,
+    x: lowPower ? 0.95 : 1.15,
     ry: 0.48,
     rz: 0.12,
     ease: "none",
@@ -118,28 +155,45 @@ function bootWorld() {
   );
 
   const cityCupY = cityCup.rotation.y;
-  gsap.timeline({
-    scrollTrigger: {
-      trigger: ".city-sec",
-      start: "top bottom",
-      end: "bottom top",
-      scrub: SCRUB,
-    },
-  })
-    .fromTo(
-      cityCup.position,
-      { x: 2.7, y: -4.6 },
-      { x: 2.55, y: -0.95, ease: "none", duration: 0.58 },
-      0
-    )
-    .to(cityCup.position, { x: 2.9, y: 2.8, ease: "none", duration: 0.42 }, 0.58)
-    .fromTo(
-      cityCup.rotation,
-      { z: -0.55, x: 0.28, y: cityCupY },
-      { z: -0.12, x: 0.08, ease: "none", duration: 0.58 },
-      0
-    )
-    .to(cityCup.rotation, { z: 0.2, y: -0.2, ease: "none", duration: 0.42 }, 0.58);
+  const cityScroll = {
+    trigger: ".city-sec",
+    start: "top bottom",
+    end: "bottom top",
+    scrub: SCRUB,
+  };
+  if (lowPower) {
+    gsap.timeline({ scrollTrigger: cityScroll })
+      .fromTo(
+        cityCup.position,
+        { x: 0, y: -3.4, z: 0.1 },
+        { x: 0, y: -0.55, z: 0.2, ease: "none", duration: 0.58 },
+        0
+      )
+      .to(cityCup.position, { x: 0.08, y: 0.55, z: 0.22, ease: "none", duration: 0.42 }, 0.58)
+      .fromTo(
+        cityCup.rotation,
+        { z: -0.32, x: 0.18, y: cityCupY },
+        { z: -0.06, x: 0.05, ease: "none", duration: 0.58 },
+        0
+      )
+      .to(cityCup.rotation, { z: 0.1, y: -0.22, ease: "none", duration: 0.42 }, 0.58);
+  } else {
+    gsap.timeline({ scrollTrigger: cityScroll })
+      .fromTo(
+        cityCup.position,
+        { x: 2.7, y: -4.6 },
+        { x: 2.55, y: -0.95, ease: "none", duration: 0.58 },
+        0
+      )
+      .to(cityCup.position, { x: 2.9, y: 2.8, ease: "none", duration: 0.42 }, 0.58)
+      .fromTo(
+        cityCup.rotation,
+        { z: -0.55, x: 0.28, y: cityCupY },
+        { z: -0.12, x: 0.08, ease: "none", duration: 0.58 },
+        0
+      )
+      .to(cityCup.rotation, { z: 0.2, y: -0.2, ease: "none", duration: 0.42 }, 0.58);
+  }
 
   const stages = [hero, clock, city];
   const favMotion = setupFavorites({
@@ -166,7 +220,12 @@ function bootWorld() {
     beans.update(t);
     favMotion.update(t);
     stages.forEach((stage) => {
-      if (stage.visible) stage.render();
+      if (!stage.visible) return;
+      if (stage.focusObject) {
+        const target = stage.focusObject.position;
+        stage.camera.lookAt(target.x, target.y * 0.85, target.z);
+      }
+      stage.render();
     });
     frameId = requestAnimationFrame(tick);
   }
@@ -195,6 +254,16 @@ function bootWorld() {
 }
 
 function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
+  const useCssFavorites =
+    lowPower
+    || window.matchMedia("(pointer: coarse)").matches;
+
+  if (useCssFavorites) {
+    document.documentElement.dataset.favRender = "css";
+    window.BrewnnsFavorites = { wireTimeline() {} };
+    return { update() {} };
+  }
+
   const canvases = [...document.querySelectorAll(".fav-canvas")];
   if (canvases.length !== 4) {
     throw new Error("Favorites section requires four WebGL canvases.");
@@ -215,7 +284,9 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
     roll: { scale: 1.05, y: -0.08, ry: 0.28, rz: 0.12, rotX: 0.1 },
   };
 
-  const items = canvases.map((canvas, index) => {
+  const items = [];
+  for (let index = 0; index < canvases.length; index += 1) {
+    const canvas = canvases[index];
     const kind = canvas.dataset.product;
     const build = builders[kind];
     const settle = layout[kind];
@@ -224,6 +295,11 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
     }
 
     const stage = createStage(canvas, { fov: 36, z: 5.4, lowPower: favLowPower });
+    if (!stage) {
+      document.documentElement.dataset.favRender = "css";
+      window.BrewnnsFavorites = { wireTimeline() {} };
+      return { update() {} };
+    }
     stage.baseCamZ = 5.4;
     const product = build();
     const reveal = {
@@ -259,8 +335,8 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
       });
     }
 
-    return stage;
-  });
+    items.push(stage);
+  }
 
   window.BrewnnsFavorites = {
     wireTimeline(timeline) {
@@ -343,16 +419,38 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
   };
 }
 
+let webglContextCount = 0;
+
 function createStage(canvas, { fov, z, lowPower }) {
+  const contextBudget = lowPower ? 4 : 8;
+  if (webglContextCount >= contextBudget) {
+    return null;
+  }
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 40);
   camera.position.set(0, 0, z);
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: !lowPower,
-    powerPreference: lowPower ? "low-power" : "high-performance",
-  });
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: !lowPower,
+      powerPreference: lowPower ? "low-power" : "high-performance",
+    });
+  } catch (error) {
+    console.error("WebGL renderer creation failed:", error);
+    return null;
+  }
+
+  const gl = renderer.getContext();
+  if (!gl || gl.isContextLost()) {
+    renderer.dispose();
+    return null;
+  }
+  webglContextCount += 1;
+
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1.25 : 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -361,14 +459,20 @@ function createStage(canvas, { fov, z, lowPower }) {
   renderer.shadowMap.enabled = false;
 
   const fit = () => {
-    const width = canvas.clientWidth || canvas.parentElement?.clientWidth || 1;
-    const height = canvas.clientHeight || canvas.parentElement?.clientHeight || 1;
+    const parent = canvas.parentElement;
+    const rect = parent?.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect?.width || canvas.clientWidth || 1));
+    const height = Math.max(1, Math.round(rect?.height || canvas.clientHeight || 1));
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
   };
   fit();
-  new ResizeObserver(fit).observe(canvas.parentElement || canvas);
+  const observeTarget = canvas.parentElement || canvas;
+  new ResizeObserver(fit).observe(observeTarget);
+  window.addEventListener("orientationchange", () => {
+    requestAnimationFrame(fit);
+  });
 
   return {
     canvas,
@@ -567,18 +671,21 @@ function makeIcedDrink(black, segments) {
   return group;
 }
 
-function makeBeans(count) {
+function makeBeans(count, tight = false) {
   const geometry = new THREE.SphereGeometry(0.09, 10, 8);
   geometry.scale(1, 0.62, 0.82);
   const material = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 0.8 });
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   const dummy = new THREE.Object3D();
+  const spreadX = tight ? 3.4 : 7.5;
+  const spreadY = tight ? 3.6 : 4.8;
+  const spreadZ = tight ? 2.2 : 3.2;
   const seeds = [];
   for (let i = 0; i < count; i += 1) {
     seeds.push({
-      x: (Math.random() - 0.45) * 7.5,
-      y: (Math.random() - 0.5) * 4.8,
-      z: (Math.random() - 0.5) * 3.2,
+      x: (Math.random() - 0.45) * spreadX,
+      y: (Math.random() - 0.5) * spreadY,
+      z: (Math.random() - 0.5) * spreadZ,
       s: 0.55 + Math.random() * 1.1,
       spin: Math.random() * Math.PI,
       speed: 0.4 + Math.random() * 0.8,
