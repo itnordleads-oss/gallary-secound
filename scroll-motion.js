@@ -32,12 +32,6 @@
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return null;
     }
-    if (
-      window.matchMedia("(max-width: 980px)").matches
-      || window.matchMedia("(pointer: coarse)").matches
-    ) {
-      return null;
-    }
     if (typeof Lenis === "undefined" || typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
       return null;
     }
