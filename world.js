@@ -13,8 +13,9 @@ function bootWorld() {
   }
   gsap.registerPlugin(ScrollTrigger);
 
+  const isPhone = window.matchMedia("(max-width: 980px)").matches;
   const lowPower =
-    window.matchMedia("(max-width: 980px)").matches
+    isPhone
     || window.matchMedia("(prefers-reduced-data: reduce)").matches
     || (navigator.hardwareConcurrency || 8) <= 4;
   const segments = lowPower ? 28 : 48;
@@ -32,38 +33,57 @@ function bootWorld() {
   const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.45, metalness: 0.08 });
   const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.55, metalness: 0.02 });
 
-  const hero = createStage(heroCanvas, { fov: 28, z: 7.2, lowPower });
+  // Phone stages keep products inside the narrower frame.
+  const hero = createStage(heroCanvas, { fov: isPhone ? 32 : 28, z: isPhone ? 8.4 : 7.2, lowPower });
   const cup = makeCup(paper, black, sleeveTexture(), segments);
   const bag = makeBag(cream, bagTexture());
-  cup.position.set(-0.35, 0.05, 0.2);
+  const cupHome = isPhone ? { x: -0.55, y: 0.05, z: 0.35 } : { x: -0.35, y: 0.05, z: 0.2 };
+  const bagHome = isPhone ? { x: 0.75, y: 0.35, z: -0.15 } : { x: 1.35, y: 0.45, z: -0.25 };
+  cup.position.set(cupHome.x, cupHome.y, cupHome.z);
   cup.rotation.set(0.1, -0.38, -0.06);
-  bag.position.set(1.35, 0.45, -0.25);
+  bag.position.set(bagHome.x, bagHome.y, bagHome.z);
   bag.rotation.set(0.06, 0.48, 0.1);
-  hero.scene.add(warmLights(), cup, bag, floorShadow(-0.35, -1.05), floorShadow(1.35, -0.62));
+  hero.scene.add(warmLights(), cup, bag, floorShadow(cupHome.x, -1.05), floorShadow(bagHome.x, -0.62));
   hero.group = { cup, bag };
 
-  const clock = createStage(clockCanvas, { fov: 30, z: 5.4, lowPower });
+  const clock = createStage(clockCanvas, { fov: 30, z: isPhone ? 6.2 : 5.4, lowPower });
   const iced = makeIcedDrink(black, lowPower ? 24 : 40);
   clock.scene.add(warmLights(1.15), iced);
   clock.group = { iced };
 
-  const city = createStage(cityCanvas, { fov: 32, z: 8.4, lowPower });
+  const city = createStage(cityCanvas, { fov: isPhone ? 36 : 32, z: isPhone ? 9.2 : 8.4, lowPower });
   const cityCup = makeCup(paper, black, sleeveTexture(), segments);
-  cityCup.scale.setScalar(1.25);
-  cityCup.position.set(2.85, -3.2, 0);
+  cityCup.scale.setScalar(isPhone ? 1.05 : 1.25);
+  cityCup.position.set(isPhone ? 0.35 : 2.85, isPhone ? -2.4 : -3.2, 0);
   cityCup.rotation.set(0.18, -0.45, -0.28);
   const beans = makeBeans(lowPower ? 20 : 42);
   city.scene.add(cityLights(), cityCup, beans.mesh);
   city.group = { cityCup, beans };
 
-  const cupPose = { x: -0.35, y: -1.15, z: 0.2, rx: 0.1, ry: -0.72, rz: -0.06, s: 0.72 };
-  const bagPose = { x: 1.35, y: -0.8, z: -0.25, rx: 0.06, ry: 0.78, rz: 0.1, s: 0.72 };
+  const cupPose = {
+    x: cupHome.x,
+    y: -1.15,
+    z: cupHome.z,
+    rx: 0.1,
+    ry: -0.72,
+    rz: -0.06,
+    s: isPhone ? 0.78 : 0.72,
+  };
+  const bagPose = {
+    x: bagHome.x,
+    y: -0.8,
+    z: bagHome.z,
+    rx: 0.06,
+    ry: 0.78,
+    rz: 0.1,
+    s: isPhone ? 0.78 : 0.72,
+  };
   const idle = { cupZ: 0, bagZ: 0, cupY: 0, bagY: 0 };
   const mouse = { x: 0, y: 0 };
 
   const intro = gsap.timeline({ delay: 1.85, defaults: { ease: "power3.out" } });
-  intro.to(cupPose, { y: 0.22, s: 0.88, ry: -0.38, duration: 1.1 }, 0);
-  intro.to(bagPose, { y: 0.52, s: 0.88, ry: 0.48, duration: 1.2 }, 0.08);
+  intro.to(cupPose, { y: isPhone ? 0.12 : 0.22, s: isPhone ? 0.92 : 0.88, ry: -0.38, duration: 1.1 }, 0);
+  intro.to(bagPose, { y: isPhone ? 0.38 : 0.52, s: isPhone ? 0.92 : 0.88, ry: 0.48, duration: 1.2 }, 0.08);
 
   gsap.to(idle, { cupZ: -0.08, cupY: -0.1, duration: 3.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
   gsap.to(idle, { bagZ: 0.08, bagY: 0.12, duration: 4.2, yoyo: true, repeat: -1, ease: "sine.inOut" });
@@ -85,15 +105,15 @@ function bootWorld() {
   };
   gsap.to(cupPose, {
     scrollTrigger: heroScroll,
-    y: lowPower ? 2.8 : 3.6,
+    y: isPhone ? 1.8 : lowPower ? 2.8 : 3.6,
     ry: -0.62,
     rz: -0.16,
     ease: "none",
   });
   gsap.to(bagPose, {
     scrollTrigger: heroScroll,
-    y: lowPower ? 2.5 : 3.2,
-    x: 1.15,
+    y: isPhone ? 1.6 : lowPower ? 2.5 : 3.2,
+    x: isPhone ? 0.55 : 1.15,
     ry: 0.48,
     rz: 0.12,
     ease: "none",
@@ -128,11 +148,11 @@ function bootWorld() {
   })
     .fromTo(
       cityCup.position,
-      { x: 2.7, y: -4.6 },
-      { x: 2.55, y: -0.95, ease: "none", duration: 0.58 },
+      { x: isPhone ? 0.2 : 2.7, y: isPhone ? -3.6 : -4.6 },
+      { x: isPhone ? 0.15 : 2.55, y: isPhone ? -0.4 : -0.95, ease: "none", duration: 0.58 },
       0
     )
-    .to(cityCup.position, { x: 2.9, y: 2.8, ease: "none", duration: 0.42 }, 0.58)
+    .to(cityCup.position, { x: isPhone ? 0.45 : 2.9, y: isPhone ? 1.6 : 2.8, ease: "none", duration: 0.42 }, 0.58)
     .fromTo(
       cityCup.rotation,
       { z: -0.55, x: 0.28, y: cityCupY },
@@ -203,15 +223,15 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
   const favSeg = Math.max(22, Math.floor(segments * 0.75));
   const favLowPower = lowPower || window.matchMedia("(max-width: 1200px)").matches;
   const builders = {
-    espresso: () => makeEspressoShot(paper, black, favSeg),
+    cappuccino: () => makeEspressoShot(paper, black, favSeg),
     latte: () => makeLatteProduct(paper, black, sleeve, favSeg),
-    iced: () => makeIcedDrink(black, favSeg),
+    matcha: () => makeMatchaDrink(black, favSeg),
     roll: () => makeCinnamonRoll(),
   };
   const layout = {
-    espresso: { scale: 0.92, y: -0.22, ry: -0.42, rz: 0.02, rotX: 0.14 },
+    cappuccino: { scale: 0.92, y: -0.22, ry: -0.42, rz: 0.02, rotX: 0.14 },
     latte: { scale: 0.86, y: -0.18, ry: -0.38, rz: 0.02, rotX: 0.14 },
-    iced: { scale: 0.94, y: -0.12, ry: -0.32, rz: -0.04, rotX: 0.12 },
+    matcha: { scale: 0.94, y: -0.12, ry: -0.32, rz: -0.04, rotX: 0.12 },
     roll: { scale: 1.05, y: -0.08, ry: 0.28, rz: 0.12, rotX: 0.1 },
   };
 
@@ -533,6 +553,17 @@ function makeCinnamonRoll() {
   glaze.position.set(0.12, 0.42, 0.16);
   glaze.scale.set(1.2, 0.55, 1.1);
   group.add(glaze);
+  return group;
+}
+
+function makeMatchaDrink(black, segments) {
+  const group = makeIcedDrink(black, segments);
+  group.traverse((obj) => {
+    if (!obj.isMesh || !obj.material?.color) return;
+    if (obj.material.color.getHex() === 0x6b4224) {
+      obj.material.color.setHex(0x5f9f62);
+    }
+  });
   return group;
 }
 

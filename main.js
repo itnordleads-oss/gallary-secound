@@ -1,7 +1,9 @@
 (() => {
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const phoneQuery = window.matchMedia("(max-width: 980px)");
+  let isPhone = phoneQuery.matches;
   const lowPower =
-    window.matchMedia("(max-width: 980px)").matches
+    isPhone
     || window.matchMedia("(prefers-reduced-data: reduce)").matches
     || (navigator.hardwareConcurrency || 8) <= 4;
   if (lowPower) document.documentElement.dataset.lowPower = "true";
@@ -24,15 +26,19 @@
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   window.scrollTo(0, 0);
 
-  menuBtn.addEventListener("click", () => {
-    const open = nav.classList.toggle("open");
+  const setMenu = (open) => {
+    nav.classList.toggle("open", open);
     menuBtn.setAttribute("aria-expanded", String(open));
-  });
+    document.body.classList.toggle("nav-lock", open && isPhone);
+  };
+
+  menuBtn.addEventListener("click", () => setMenu(!nav.classList.contains("open")));
   nav.querySelectorAll(".links a, .order").forEach((link) => {
-    link.addEventListener("click", () => {
-      nav.classList.remove("open");
-      menuBtn.setAttribute("aria-expanded", "false");
-    });
+    link.addEventListener("click", () => setMenu(false));
+  });
+  phoneQuery.addEventListener("change", (event) => {
+    isPhone = event.matches;
+    if (!isPhone) setMenu(false);
   });
 
   for (let hour = 1; hour <= 12; hour += 1) {
@@ -65,8 +71,12 @@
   };
 
   const setNavTheme = () => {
-    const light = document.elementFromPoint(window.innerWidth / 2, 72)?.closest(".light");
+    // Probe below the sticky nav so the nav itself does not steal the hit.
+    const probeY = Math.min(window.innerHeight - 8, Math.max(88, nav.getBoundingClientRect().bottom + 12));
+    const sample = document.elementsFromPoint(window.innerWidth / 2, probeY);
+    const light = sample.find((node) => node instanceof Element && node.closest(".light"))?.closest(".light");
     nav.dataset.theme = light ? "light" : "dark";
+    if (nav.classList.contains("open") && isPhone) nav.dataset.theme = "dark";
   };
 
   if (prefersReduced) {
@@ -161,6 +171,22 @@
   }
   favWire.wireTimeline(favTl);
 
+  gsap.from(".menu-strip-label", {
+    scrollTrigger: { trigger: ".menu-strip", start: "top 88%" },
+    y: 16,
+    opacity: 0,
+    duration: 0.45,
+    ease: "power2.out",
+  });
+  gsap.from(".menu-strip-track a", {
+    scrollTrigger: { trigger: ".menu-strip", start: "top 85%" },
+    y: 22,
+    opacity: 0,
+    duration: 0.5,
+    stagger: 0.04,
+    ease: "power2.out",
+  });
+
   gsap.fromTo(
     ".favorites .watermark",
     { opacity: 0, x: 60 },
@@ -186,6 +212,21 @@
     stagger: 0.02,
     ease: "power2.out",
   });
+  gsap.from(".clock-locs li", {
+    scrollTrigger: { trigger: ".clock-sec", start: "top 72%" },
+    y: 18,
+    opacity: 0,
+    duration: 0.45,
+    stagger: 0.08,
+    ease: "power2.out",
+  });
+  gsap.from(".clock-aside", {
+    scrollTrigger: { trigger: ".clock-sec", start: "top 68%" },
+    y: 20,
+    opacity: 0,
+    duration: 0.5,
+    ease: "power2.out",
+  });
 
   gsap.from(".city-sec h2", {
     scrollTrigger: { trigger: ".city-sec", start: "top 72%" },
@@ -200,12 +241,21 @@
     ease: "none",
   });
 
-  gsap.from(".now-sec h2", {
+  gsap.from(".now-head h2 span", {
     scrollTrigger: { trigger: ".now-sec", start: "top 75%" },
     y: 40,
     opacity: 0,
     duration: 0.75,
+    stagger: 0.06,
     ease: "power3.out",
+  });
+  gsap.from(".now-copy, .now-cta", {
+    scrollTrigger: { trigger: ".now-sec", start: "top 72%" },
+    y: 24,
+    opacity: 0,
+    duration: 0.6,
+    stagger: 0.08,
+    ease: "power2.out",
   });
   gsap.from(".still-life", {
     scrollTrigger: { trigger: ".now-sec", start: "top 72%" },
