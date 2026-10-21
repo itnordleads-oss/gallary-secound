@@ -1,6 +1,6 @@
 (() => {
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const phoneQuery = window.matchMedia("(max-width: 980px)");
+  const phoneQuery = window.matchMedia("(max-width: 760px)");
   let isPhone = phoneQuery.matches;
   const lowPower =
     isPhone
@@ -66,7 +66,7 @@
     [...word].forEach((letter, index) => {
       window.setTimeout(() => {
         momentWord.textContent += letter;
-      }, index * 85);
+      }, index * 42);
     });
   };
 
@@ -82,6 +82,8 @@
   if (prefersReduced) {
     momentWord.textContent = "moment";
     loader.remove();
+    const roast = document.querySelector(".tip-roast");
+    if (roast) roast.style.opacity = "1";
     setNavTheme();
     window.addEventListener("scroll", setNavTheme, { passive: true });
     return;
@@ -120,23 +122,26 @@
   const loadProxy = { n: 0 };
   intro.to(loadProxy, {
     n: 100,
-    duration: 1.45,
+    duration: 0.42,
     ease: "power1.inOut",
     onUpdate: () => {
       loaderCount.textContent = String(Math.round(loadProxy.n));
     },
   }, 0);
-  intro.to(loaderFill, { height: "100%", duration: 1.45, ease: "power1.inOut" }, 0);
-  intro.to(loader, { yPercent: -110, duration: 0.85, ease: "power3.inOut" }, "+=0.12");
+  intro.to(loaderFill, { height: "100%", duration: 0.42, ease: "power1.inOut" }, 0);
+  intro.to(loader, { yPercent: -110, duration: 0.28, ease: "power3.inOut" }, "+=0.04");
   intro.set(loader, { display: "none" });
 
-  gsap.set(".hero-copy > *", { y: 28, opacity: 0 });
-  intro.to(".hero-copy > *", { y: 0, opacity: 1, duration: 0.8, stagger: 0.08, ease: "power3.out" }, "-=0.35");
-  intro.add(() => typeWord("moment"), "-=0.55");
-  intro.to(".tip-latte", { opacity: 1, y: 0, duration: 0.35 }, "+=0.55");
-  intro.to(".tip-latte", { opacity: 0, y: -6, duration: 0.28 }, "+=0.9");
-  intro.to(".tip-roast", { opacity: 1, y: 0, duration: 0.35 }, "-=0.05");
-  intro.to(".tip-roast", { opacity: 0, y: -6, duration: 0.28 }, "+=1.0");
+  gsap.set(".hero-copy > *", { y: 16, opacity: 0 });
+  intro.to(".eyebrow", { y: 0, opacity: 1, duration: 0.2, ease: "power3.out" }, "-=0.12");
+  intro.to(".hero-copy h1", { y: 0, opacity: 1, duration: 0.26, ease: "power3.out" }, "-=0.08");
+  intro.add(() => typeWord("moment"), "<");
+  intro.to(".lede", { y: 0, opacity: 1, duration: 0.2, ease: "power3.out" }, "-=0.08");
+  intro.to(".text-link", { y: 0, opacity: 1, duration: 0.18, ease: "power3.out" }, "-=0.06");
+  intro.from(".hero-meta span", { y: 8, opacity: 0, duration: 0.18, stagger: 0.04, ease: "power2.out" }, "-=0.08");
+  intro.to(".tip-latte", { opacity: 1, y: 0, duration: 0.18 }, "-=0.1");
+  intro.to(".tip-latte", { opacity: 0, y: -6, duration: 0.16 }, "+=0.12");
+  intro.to(".tip-roast", { opacity: 1, y: 0, duration: 0.22 }, "-=0.04");
 
   gsap.to(".hero-copy", { scrollTrigger: heroScrub, y: -28, opacity: 0.72, ease: "none" });
   gsap.to(".hero-meta", { scrollTrigger: heroScrub, y: -12, opacity: 0.55, ease: "none" });
@@ -171,119 +176,129 @@
   }
   favWire.wireTimeline(favTl);
 
-  gsap.from(".menu-strip-label", {
-    scrollTrigger: { trigger: ".menu-strip", start: "top 88%" },
-    y: 16,
-    opacity: 0,
-    duration: 0.45,
+  gsap.fromTo(".menu-strip-label", { y: 12, opacity: 0 }, {
+    y: 0,
+    opacity: 1,
+    scrollTrigger: { trigger: ".menu-strip", start: "top 88%", toggleActions: "play none none none" },
+    duration: 0.4,
     ease: "power2.out",
   });
-  gsap.from(".menu-strip-track a", {
-    scrollTrigger: { trigger: ".menu-strip", start: "top 85%" },
-    y: 22,
-    opacity: 0,
-    duration: 0.5,
-    stagger: 0.04,
+  gsap.fromTo(".menu-strip-track a", { y: 14, opacity: 0 }, {
+    y: 0,
+    opacity: 1,
+    scrollTrigger: { trigger: ".menu-strip", start: "top 85%", toggleActions: "play none none none" },
+    duration: 0.4,
+    stagger: 0.03,
     ease: "power2.out",
   });
 
   gsap.fromTo(
     ".favorites .watermark",
-    { opacity: 0, x: 60 },
+    { x: 48 },
     {
       scrollTrigger: { trigger: favorites, start: "top 82%", end: "center center", scrub: SCRUB },
-      opacity: 1,
       x: 0,
       ease: "none",
     }
   );
 
-  gsap.from(".clock-kicker", {
-    scrollTrigger: { trigger: ".clock-sec", start: "top 78%" },
-    opacity: 0,
-    x: -20,
-    duration: 0.45,
+  gsap.fromTo(".clock-kicker", { opacity: 0, x: -16 }, {
+    opacity: 1,
+    x: 0,
+    scrollTrigger: { trigger: ".clock-sec", start: "top 78%", toggleActions: "play none none none" },
+    duration: 0.4,
     ease: "power2.out",
   });
-  gsap.from(".clock-num", {
-    scrollTrigger: { trigger: ".clock-sec", start: "top 70%" },
-    opacity: 0,
-    duration: 0.35,
-    stagger: 0.02,
+  gsap.fromTo(".clock-num", { opacity: 0 }, {
+    opacity: 1,
+    scrollTrigger: { trigger: ".clock-sec", start: "top 70%", toggleActions: "play none none none" },
+    duration: 0.3,
+    stagger: 0.015,
     ease: "power2.out",
   });
-  gsap.from(".clock-locs li", {
-    scrollTrigger: { trigger: ".clock-sec", start: "top 72%" },
-    y: 18,
-    opacity: 0,
-    duration: 0.45,
-    stagger: 0.08,
-    ease: "power2.out",
-  });
-  gsap.from(".clock-aside", {
-    scrollTrigger: { trigger: ".clock-sec", start: "top 68%" },
-    y: 20,
-    opacity: 0,
-    duration: 0.5,
-    ease: "power2.out",
-  });
-
-  gsap.from(".city-sec h2", {
-    scrollTrigger: { trigger: ".city-sec", start: "top 72%" },
-    y: 50,
-    opacity: 0,
-    duration: 0.85,
-    ease: "power3.out",
-  });
-  gsap.to(".city-sec h2", {
-    scrollTrigger: { trigger: ".city-sec", start: "top bottom", end: "bottom top", scrub: SCRUB },
-    y: -40,
-    ease: "none",
-  });
-
-  gsap.from(".now-head h2 span", {
-    scrollTrigger: { trigger: ".now-sec", start: "top 75%" },
-    y: 40,
-    opacity: 0,
-    duration: 0.75,
+  gsap.fromTo(".clock-locs li", { y: 14, opacity: 0 }, {
+    y: 0,
+    opacity: 1,
+    scrollTrigger: { trigger: ".clock-sec", start: "top 72%", toggleActions: "play none none none" },
+    duration: 0.4,
     stagger: 0.06,
-    ease: "power3.out",
-  });
-  gsap.from(".now-copy, .now-cta", {
-    scrollTrigger: { trigger: ".now-sec", start: "top 72%" },
-    y: 24,
-    opacity: 0,
-    duration: 0.6,
-    stagger: 0.08,
     ease: "power2.out",
   });
-  gsap.from(".still-life", {
-    scrollTrigger: { trigger: ".now-sec", start: "top 72%" },
-    y: 70,
-    scale: 0.92,
-    opacity: 0,
-    duration: 0.7,
-    ease: "power3.out",
+  gsap.fromTo(".clock-aside", { y: 14, opacity: 0 }, {
+    y: 0,
+    opacity: 1,
+    scrollTrigger: { trigger: ".clock-sec", start: "top 68%", toggleActions: "play none none none" },
+    duration: 0.45,
+    ease: "power2.out",
   });
-  gsap.to(".still-life", {
-    scrollTrigger: { trigger: ".now-sec", start: "top 65%", end: "bottom top", scrub: SCRUB },
-    scale: 1.08,
-    y: -30,
-    ease: "none",
-  });
-  gsap.to(".receipt", {
-    scrollTrigger: { trigger: ".now-sec", start: "top 70%", end: "bottom top", scrub: SCRUB },
-    y: -70,
-    rotate: -4,
+
+  gsap.fromTo(".city-sec h2", { y: 36 }, {
+    y: 0,
+    scrollTrigger: { trigger: ".city-sec", start: "top 88%", end: "top 42%", scrub: SCRUB },
     ease: "none",
   });
 
-  gsap.from(".site-footer", {
-    scrollTrigger: { trigger: ".site-footer", start: "top 88%" },
-    y: 28,
-    opacity: 0,
-    duration: 0.65,
-    ease: "power3.out",
+  const orderStage = document.querySelector(".crn-stage");
+  if (!orderStage || !document.getElementById("coffee-right-now")) {
+    throw new Error("Coffee for Right Now section markup is missing.");
+  }
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    orderStage.addEventListener("pointermove", (event) => {
+      const box = orderStage.getBoundingClientRect();
+      const x = (event.clientX - box.left) / box.width - 0.5;
+      const y = (event.clientY - box.top) / box.height - 0.5;
+      orderStage.style.setProperty("--px", `${(x * 3).toFixed(2)}px`);
+      orderStage.style.setProperty("--py", `${(y * 2).toFixed(2)}px`);
+    });
+    orderStage.addEventListener("pointerleave", () => {
+      orderStage.style.setProperty("--px", "0px");
+      orderStage.style.setProperty("--py", "0px");
+    });
+  }
+  if (isPhone) {
+    gsap.fromTo(".plate, .receipt, .crn-title span, .crn-copy, .crn-cta", { y: 10 }, {
+      y: 0,
+      duration: 0.45,
+      stagger: 0.04,
+      ease: "power2.out",
+      scrollTrigger: { trigger: "#coffee-right-now", start: "top 80%", toggleActions: "play none none none" },
+    });
+  } else {
+    const nowReveal = {
+      trigger: "#coffee-right-now",
+      start: "top 82%",
+      end: "top 38%",
+      scrub: SCRUB,
+    };
+    const nowTl = gsap.timeline({ scrollTrigger: nowReveal });
+    nowTl.fromTo(".plate", { y: 16, opacity: 0.35 }, { y: 0, opacity: 1, ease: "none", duration: 0.28 }, 0);
+    nowTl.fromTo(".matcha-slice, .matcha-cake", { opacity: 0.35 }, { opacity: 1, ease: "none", duration: 0.24 }, 0.18);
+    nowTl.fromTo(".receipt", { y: 28, opacity: 0.2 }, { y: 0, opacity: 1, ease: "none", duration: 0.32 }, 0.32);
+    nowTl.fromTo(".crn-title span", { y: 12, opacity: 0.45 }, { y: 0, opacity: 1, ease: "none", stagger: 0.04, duration: 0.22 }, 0.5);
+    nowTl.fromTo(".crn-copy, .crn-cta", { y: 8, opacity: 0.4 }, { y: 0, opacity: 1, ease: "none", stagger: 0.04, duration: 0.18 }, 0.68);
+  }
+  const heroStage = document.getElementById("heroStage");
+  const heroFloat = document.getElementById("heroFloat");
+  if (!heroStage || !heroFloat) {
+    throw new Error("Hero stage markup is missing.");
+  }
+  if (window.matchMedia("(min-width: 1101px)").matches) {
+    ScrollTrigger.create({
+      trigger: ".hero",
+      start: "top top",
+      endTrigger: ".favorites",
+      end: "top 12%",
+      pin: heroStage,
+      pinSpacing: false,
+      anticipatePin: 1,
+    });
+  }
+
+  gsap.fromTo(".clock-hand", { rotation: -50 }, {
+    rotation: 18,
+    duration: 0.8,
+    ease: "power2.out",
+    scrollTrigger: { trigger: ".clock-sec", start: "top 70%", toggleActions: "play none none none" },
   });
 
   ScrollTrigger.create({

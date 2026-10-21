@@ -13,9 +13,11 @@ function bootWorld() {
   }
   gsap.registerPlugin(ScrollTrigger);
 
-  const isPhone = window.matchMedia("(max-width: 980px)").matches;
+  const viewport = window.innerWidth;
+  const narrow = viewport < 760;
+  const tablet = viewport >= 760 && viewport < 1100;
   const lowPower =
-    isPhone
+    viewport < 980
     || window.matchMedia("(prefers-reduced-data: reduce)").matches
     || (navigator.hardwareConcurrency || 8) <= 4;
   const segments = lowPower ? 28 : 48;
@@ -30,109 +32,149 @@ function bootWorld() {
   document.documentElement.dataset.webgl = "on";
 
   const paper = makePaperMaterial();
-  const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.45, metalness: 0.08 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.32, metalness: 0.22 });
   const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.55, metalness: 0.02 });
 
   // Phone stages keep products inside the narrower frame.
-  const hero = createStage(heroCanvas, { fov: isPhone ? 32 : 28, z: isPhone ? 8.4 : 7.2, lowPower });
+  const hero = createStage(heroCanvas, {
+    fov: narrow ? 32 : tablet ? 30 : 24,
+    z: narrow ? 7.8 : tablet ? 7.6 : 5.8,
+    lowPower,
+  });
   const cup = makeCup(paper, black, sleeveTexture(), segments);
   const bag = makeBag(cream, bagTexture());
-  const cupHome = isPhone ? { x: -0.55, y: 0.05, z: 0.35 } : { x: -0.35, y: 0.05, z: 0.2 };
-  const bagHome = isPhone ? { x: 0.75, y: 0.35, z: -0.15 } : { x: 1.35, y: 0.45, z: -0.25 };
+  const cupHome = narrow
+    ? { x: -0.02, y: 0.18, z: 0.12 }
+    : tablet
+      ? { x: 0.05, y: -0.1, z: 0.2 }
+      : { x: 0.22, y: -0.22, z: 0.05 };
+  const bagHome = narrow
+    ? { x: 0.48, y: 0.12, z: -0.42 }
+    : tablet
+      ? { x: 0.85, y: 0.22, z: -0.45 }
+      : { x: 1.22, y: 0.38, z: -0.35 };
   cup.position.set(cupHome.x, cupHome.y, cupHome.z);
-  cup.rotation.set(0.1, -0.38, -0.06);
+  cup.rotation.set(0.04, -0.18, -0.02);
   bag.position.set(bagHome.x, bagHome.y, bagHome.z);
-  bag.rotation.set(0.06, 0.48, 0.1);
+  bag.rotation.set(0.04, 0.28, 0.04);
   hero.scene.add(warmLights(), cup, bag, floorShadow(cupHome.x, -1.05), floorShadow(bagHome.x, -0.62));
   hero.group = { cup, bag };
 
-  const clock = createStage(clockCanvas, { fov: 30, z: isPhone ? 6.2 : 5.4, lowPower });
-  const iced = makeIcedDrink(black, lowPower ? 24 : 40);
+  const clock = createStage(clockCanvas, { fov: 30, z: narrow ? 6.2 : tablet ? 5.6 : 5.1, lowPower });
+  const iced = makeIcedDrink(black, lowPower ? 24 : 40, { flavor: "coffee", lowPower });
   clock.scene.add(warmLights(1.15), iced);
   clock.group = { iced };
 
-  const city = createStage(cityCanvas, { fov: isPhone ? 36 : 32, z: isPhone ? 9.2 : 8.4, lowPower });
+  const city = createStage(cityCanvas, {
+    fov: narrow ? 34 : tablet ? 32 : 30,
+    z: narrow ? 8.6 : tablet ? 8.2 : 7.6,
+    lowPower,
+  });
+  city.camera.position.x = narrow ? 0 : tablet ? 0.15 : 0.45;
+  city.camera.lookAt(narrow ? 0 : 0.2, narrow ? -0.7 : -0.35, 0);
   const cityCup = makeCup(paper, black, sleeveTexture(), segments);
-  cityCup.scale.setScalar(isPhone ? 1.05 : 1.25);
-  cityCup.position.set(isPhone ? 0.35 : 2.85, isPhone ? -2.4 : -3.2, 0);
-  cityCup.rotation.set(0.18, -0.45, -0.28);
-  const beans = makeBeans(lowPower ? 20 : 42);
-  city.scene.add(cityLights(), cityCup, beans.mesh);
+  const cityHome = narrow
+    ? { x: 0.05, y: -0.85, s: 0.78 }
+    : tablet
+      ? { x: 0.55, y: -0.7, s: 0.92 }
+      : { x: 1.42, y: -0.78, s: 1.14 };
+  cityCup.scale.setScalar(cityHome.s);
+  cityCup.position.set(cityHome.x, cityHome.y, 0.15);
+  cityCup.rotation.set(0.06, -0.22, -0.04);
+  const beans = makeBeans(narrow ? 8 : tablet ? 14 : 20, cityHome);
+  const cityLight = cityLights();
+  city.scene.add(cityLight, cityCup, floorShadow(cityHome.x, cityHome.y - 0.95), beans.mesh);
   city.group = { cityCup, beans };
 
   const cupPose = {
     x: cupHome.x,
-    y: -1.15,
+    y: narrow ? -0.2 : -1.15,
     z: cupHome.z,
-    rx: 0.1,
-    ry: -0.72,
-    rz: -0.06,
-    s: isPhone ? 0.78 : 0.72,
+    rx: 0.04,
+    ry: narrow ? -1.2 : -0.55,
+    rz: -0.02,
+    s: narrow ? 0.96 : tablet ? 0.76 : 0.72,
   };
   const bagPose = {
     x: bagHome.x,
-    y: -0.8,
+    y: narrow ? -0.15 : -0.8,
     z: bagHome.z,
-    rx: 0.06,
-    ry: 0.78,
-    rz: 0.1,
-    s: isPhone ? 0.78 : 0.72,
+    rx: 0.04,
+    ry: 0.55,
+    rz: 0.04,
+    s: narrow ? 0.84 : tablet ? 0.76 : 0.72,
   };
   const idle = { cupZ: 0, bagZ: 0, cupY: 0, bagY: 0 };
   const mouse = { x: 0, y: 0 };
 
-  const intro = gsap.timeline({ delay: 1.85, defaults: { ease: "power3.out" } });
-  intro.to(cupPose, { y: isPhone ? 0.12 : 0.22, s: isPhone ? 0.92 : 0.88, ry: -0.38, duration: 1.1 }, 0);
-  intro.to(bagPose, { y: isPhone ? 0.38 : 0.52, s: isPhone ? 0.92 : 0.88, ry: 0.48, duration: 1.2 }, 0.08);
+  const intro = gsap.timeline({ delay: 0.72, defaults: { ease: "power3.out" } });
+  intro.to(cupPose, {
+    y: narrow ? -0.18 : tablet ? -0.02 : -0.18,
+    s: narrow ? 1 : tablet ? 1.02 : 0.88,
+    ry: -1.35,
+    duration: 0.55,
+  }, 0);
+  intro.to(bagPose, {
+    x: narrow ? 0.3 : bagHome.x,
+    y: narrow ? 0.02 : tablet ? 0.22 : 0.32,
+    s: narrow ? 0.84 : tablet ? 1.08 : 1.22,
+    ry: 0.42,
+    duration: 0.62,
+  }, 0.06);
 
   gsap.to(idle, { cupZ: -0.08, cupY: -0.1, duration: 3.5, yoyo: true, repeat: -1, ease: "sine.inOut" });
   gsap.to(idle, { bagZ: 0.08, bagY: 0.12, duration: 4.2, yoyo: true, repeat: -1, ease: "sine.inOut" });
 
   const heroStage = document.getElementById("heroStage");
   if (!heroStage) throw new Error("Hero stage markup is missing.");
-  heroStage.addEventListener("pointermove", (event) => {
-    const box = heroStage.getBoundingClientRect();
-    mouse.x = (event.clientX - box.left) / box.width - 0.5;
-    mouse.y = (event.clientY - box.top) / box.height - 0.5;
-  });
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    heroStage.addEventListener("pointermove", (event) => {
+      const box = heroStage.getBoundingClientRect();
+      mouse.x = (event.clientX - box.left) / box.width - 0.5;
+      mouse.y = (event.clientY - box.top) / box.height - 0.5;
+    });
+  }
 
   const SCRUB = window.BrewnnsScroll?.SCRUB ?? 0.5;
-  const heroScroll = window.BrewnnsScroll?.heroScrollTrigger?.() ?? {
-    trigger: ".hero",
-    start: "top top",
-    end: "bottom top",
+  const heroTravel = window.BrewnnsScroll?.heroTravelTrigger?.() ?? {
+    trigger: ".menu-strip",
+    start: "top bottom",
+    endTrigger: ".favorites",
+    end: "top 12%",
     scrub: SCRUB,
   };
-  gsap.to(cupPose, {
-    scrollTrigger: heroScroll,
-    y: isPhone ? 1.8 : lowPower ? 2.8 : 3.6,
-    ry: -0.62,
-    rz: -0.16,
-    ease: "none",
-  });
-  gsap.to(bagPose, {
-    scrollTrigger: heroScroll,
-    y: isPhone ? 1.6 : lowPower ? 2.5 : 3.2,
-    x: isPhone ? 0.55 : 1.15,
-    ry: 0.48,
-    rz: 0.12,
-    ease: "none",
-  });
+  const heroTravelTweens = [];
+  if (!narrow && !tablet) {
+    heroTravelTweens.push(gsap.to(cupPose, {
+      scrollTrigger: { ...heroTravel },
+      y: 1.45,
+      ry: -0.48,
+      rz: -0.12,
+      ease: "none",
+    }));
+    heroTravelTweens.push(gsap.to(bagPose, {
+      scrollTrigger: { ...heroTravel },
+      y: 1.7,
+      x: 0.86,
+      ry: 0.36,
+      rz: 0.08,
+      ease: "none",
+    }));
+  }
 
-  const clockScroll = window.BrewnnsScroll?.clockScrollTrigger?.() ?? {
-    trigger: ".clock-sec",
-    start: "top 55%",
-    end: "bottom top",
-    scrub: SCRUB,
-  };
   gsap.fromTo(
     iced.rotation,
-    { x: 0.04, y: 0.02, z: 0 },
+    { x: 0.02, y: 0.04, z: 0 },
     {
-      scrollTrigger: clockScroll,
-      x: 0.95,
-      y: -0.18,
-      z: 0.7,
+      scrollTrigger: {
+        trigger: ".clock-sec",
+        start: "center 38%",
+        end: "bottom top",
+        scrub: SCRUB,
+      },
+      x: narrow ? 0.14 : 0.92,
+      y: -0.38,
+      z: 0.28,
       ease: "none",
     }
   );
@@ -148,18 +190,30 @@ function bootWorld() {
   })
     .fromTo(
       cityCup.position,
-      { x: isPhone ? 0.2 : 2.7, y: isPhone ? -3.6 : -4.6 },
-      { x: isPhone ? 0.15 : 2.55, y: isPhone ? -0.4 : -0.95, ease: "none", duration: 0.58 },
+      { x: cityHome.x - 0.08, y: cityHome.y - 0.22 },
+      { x: cityHome.x, y: cityHome.y + 0.08, ease: "none", duration: 0.58 },
       0
     )
-    .to(cityCup.position, { x: isPhone ? 0.45 : 2.9, y: isPhone ? 1.6 : 2.8, ease: "none", duration: 0.42 }, 0.58)
+    .to(cityCup.position, { x: cityHome.x + 0.28, y: cityHome.y + 1.05, ease: "none", duration: 0.42 }, 0.58)
     .fromTo(
       cityCup.rotation,
-      { z: -0.55, x: 0.28, y: cityCupY },
-      { z: -0.12, x: 0.08, ease: "none", duration: 0.58 },
+      { z: -0.06, x: 0.08, y: cityCupY },
+      { z: -0.04, x: 0.06, ease: "none", duration: 0.7 },
       0
     )
-    .to(cityCup.rotation, { z: 0.2, y: -0.2, ease: "none", duration: 0.42 }, 0.58);
+    .to(cityCup.rotation, { z: -0.02, y: cityCupY - 0.08, ease: "none", duration: 0.3 }, 0.7);
+
+  gsap.to(beans.mesh.position, {
+    y: 0.85,
+    x: 0.15,
+    scrollTrigger: {
+      trigger: ".city-sec",
+      start: "top bottom",
+      end: "bottom top",
+      scrub: SCRUB,
+    },
+    ease: "none",
+  });
 
   const stages = [hero, clock, city];
   const favMotion = setupFavorites({
@@ -178,12 +232,12 @@ function bootWorld() {
     if (!running) return;
     const t = clockObj.getElapsedTime();
     cup.position.set(cupPose.x, cupPose.y + idle.cupY, cupPose.z);
-    cup.rotation.set(cupPose.rx - mouse.y * 0.28, cupPose.ry + mouse.x * 0.55, cupPose.rz + idle.cupZ);
+    cup.rotation.set(cupPose.rx - mouse.y * 0.08, cupPose.ry + mouse.x * 0.12, cupPose.rz + idle.cupZ);
     cup.scale.setScalar(cupPose.s);
     bag.position.set(bagPose.x, bagPose.y + idle.bagY, bagPose.z);
-    bag.rotation.set(bagPose.rx - mouse.y * 0.22, bagPose.ry + mouse.x * 0.7, bagPose.rz + idle.bagZ);
+    bag.rotation.set(bagPose.rx - mouse.y * 0.06, bagPose.ry + mouse.x * 0.14, bagPose.rz + idle.bagZ);
     bag.scale.setScalar(bagPose.s);
-    beans.update(t);
+    if (city.visible) beans.update(t);
     favMotion.update(t);
     stages.forEach((stage) => {
       if (stage.visible) stage.render();
@@ -211,6 +265,65 @@ function bootWorld() {
   });
   stages.forEach((stage) => { stage.visible = true; });
   tick();
+  const frameHero = () => {
+    const width = window.innerWidth;
+    const isNarrow = width < 760;
+    const isTablet = width >= 760 && width < 1100;
+    if (isNarrow || isTablet) {
+      heroTravelTweens.splice(0).forEach((tween) => {
+        tween.scrollTrigger?.kill();
+        tween.kill();
+      });
+      if (isNarrow) {
+        cupPose.x = 0.02;
+        cupPose.y = -0.18;
+        cupPose.z = 0.12;
+        cupPose.s = 1;
+        cupPose.ry = -1.35;
+        bagPose.x = 0.3;
+        bagPose.y = 0.02;
+        bagPose.z = -0.32;
+        bagPose.s = 0.84;
+        bagPose.ry = 0.42;
+        hero.camera.fov = 28;
+        hero.camera.position.set(0, -0.05, 6.6);
+      } else {
+        cupPose.x = 0.02;
+        cupPose.y = -0.02;
+        cupPose.z = 0.14;
+        cupPose.s = 1.02;
+        cupPose.ry = -1.35;
+        bagPose.x = 0.7;
+        bagPose.y = 0.18;
+        bagPose.z = -0.32;
+        bagPose.s = 1.08;
+        bagPose.ry = 0.42;
+        hero.camera.fov = 28;
+        hero.camera.position.set(0, 0.02, 6.2);
+      }
+    } else {
+      hero.camera.fov = 24;
+      hero.camera.position.set(0, 0, 5.8);
+    }
+    hero.camera.lookAt(0, 0, 0);
+    hero.camera.updateProjectionMatrix();
+  };
+  const frameCity = () => {
+    const width = window.innerWidth;
+    const narrow = width < 760;
+    const tablet = width >= 760 && width < 1100;
+    city.camera.fov = narrow ? 34 : tablet ? 32 : 30;
+    city.camera.position.z = narrow ? 8.6 : tablet ? 8.2 : 7.6;
+    city.camera.position.x = narrow ? 0 : tablet ? 0.15 : 0.45;
+    city.camera.lookAt(narrow ? 0 : 0.2, narrow ? -0.7 : -0.35, 0);
+    city.camera.updateProjectionMatrix();
+  };
+  frameHero();
+  frameCity();
+  window.addEventListener("resize", () => {
+    frameHero();
+    frameCity();
+  });
   window.addEventListener("load", () => ScrollTrigger.refresh());
 }
 
@@ -223,9 +336,9 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
   const favSeg = Math.max(22, Math.floor(segments * 0.75));
   const favLowPower = lowPower || window.matchMedia("(max-width: 1200px)").matches;
   const builders = {
-    cappuccino: () => makeEspressoShot(paper, black, favSeg),
-    latte: () => makeLatteProduct(paper, black, sleeve, favSeg),
-    matcha: () => makeMatchaDrink(black, favSeg),
+    cappuccino: () => makeEspressoShot(paper, favSeg),
+    latte: () => makeLatteProduct(paper, creamLid(), sleeve, favSeg),
+    matcha: () => makeIcedDrink(black, favSeg, { flavor: "matcha", lowPower: favLowPower }),
     roll: () => makeCinnamonRoll(),
   };
   const layout = {
@@ -267,7 +380,8 @@ function setupFavorites({ paper, black, segments, lowPower, sleeve, stages }) {
     stages.push(stage);
 
     const card = canvas.closest(".menu-card");
-    if (card) {
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (card && finePointer) {
       card.addEventListener("pointermove", (event) => {
         const box = card.getBoundingClientRect();
         stage.group.tilt.y = ((event.clientX - box.left) / box.width - 0.5) * 0.72;
@@ -374,7 +488,8 @@ function createStage(canvas, { fov, z, lowPower }) {
     powerPreference: lowPower ? "low-power" : "high-performance",
   });
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1.25 : 1.75));
+  const dprCap = (canvas.clientWidth || window.innerWidth) < 760 ? 1.5 : lowPower ? 1.5 : 1.75;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, dprCap));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.02;
@@ -409,17 +524,22 @@ function warmLights(intensity = 1) {
   key.position.set(3.2, 4.2, 3.6);
   const fill = new THREE.DirectionalLight(0xb9d4ff, 0.28 * intensity);
   fill.position.set(-3.4, 0.6, 2.2);
-  const rim = new THREE.PointLight(0xffb978, 1.1 * intensity, 12);
+  const rim = new THREE.PointLight(0xffb978, 1.35 * intensity, 12);
   rim.position.set(0.4, 1.8, -2.4);
   group.add(key, fill, rim);
   return group;
 }
 
 function cityLights() {
-  const group = warmLights(0.95);
-  const ember = new THREE.PointLight(0xc47a3a, 1.4, 14);
-  ember.position.set(2.4, 1.2, 1.5);
-  group.add(ember);
+  const group = new THREE.Group();
+  group.add(new THREE.AmbientLight(0x2a2018, 0.55));
+  const key = new THREE.DirectionalLight(0xffd2a0, 1.15);
+  key.position.set(4.2, 5.4, 3.2);
+  const fill = new THREE.DirectionalLight(0x6a5a48, 0.35);
+  fill.position.set(-2.8, 1.2, 2.4);
+  const rim = new THREE.DirectionalLight(0xffc48a, 0.42);
+  rim.position.set(2.6, 2.8, -2.2);
+  group.add(key, fill, rim);
   return group;
 }
 
@@ -431,28 +551,46 @@ function makePaperMaterial() {
   });
 }
 
-function makeCup(paper, black, sleeve, segments) {
+function creamLid() {
+  return new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.42, metalness: 0.02 });
+}
+
+function makeCup(paper, lidMat, sleeve, segments) {
   const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.58, 1.72, segments, 1, true), paper);
+  const wall = new THREE.MeshStandardMaterial({ color: 0xf6f3ee, roughness: 0.78, metalness: 0.02 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.64, 0.5, 1.92, segments, 1, true), wall);
   const inner = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.7, 0.56, 1.7, segments, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xe8e0d4, side: THREE.BackSide, roughness: 0.7 })
+    new THREE.CylinderGeometry(0.62, 0.48, 1.88, segments, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xe7e1d6, side: THREE.BackSide, roughness: 0.84 })
   );
-  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.58, segments), paper);
+  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.5, segments), paper);
   bottom.rotation.x = Math.PI / 2;
-  bottom.position.y = -0.86;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.76, 0.16, segments), black);
-  lid.position.y = 0.94;
-  const ridge = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.05, segments), black);
-  ridge.position.y = 1.02;
-  const sip = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.07, Math.max(12, segments / 2)), black);
-  sip.position.y = 1.08;
-  const label = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.731, 0.605, 0.78, segments, 1, true),
-    new THREE.MeshStandardMaterial({ map: sleeve, roughness: 0.7 })
+  bottom.position.y = -0.96;
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.028, 8, segments), wall);
+  lip.rotation.x = Math.PI / 2;
+  lip.position.y = 0.94;
+  const labelMat = new THREE.MeshStandardMaterial({
+    map: sleeve,
+    roughness: 0.8,
+    metalness: 0,
+    transparent: true,
+    depthWrite: false,
+  });
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.648, 0.508, 1.2, segments, 1, true), labelMat);
+  label.position.y = -0.08;
+  const lidSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.7, 0.07, segments), lidMat);
+  lidSkirt.position.y = 1.02;
+  const lidDeck = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.05, segments), lidMat);
+  lidDeck.position.y = 1.07;
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.58, Math.max(16, segments / 2), 12, 0, Math.PI * 2, 0, Math.PI * 0.42),
+    lidMat
   );
-  label.position.y = 0.02;
-  group.add(body, inner, bottom, lid, ridge, sip, label);
+  dome.scale.y = 0.22;
+  dome.position.y = 1.08;
+  const sip = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.045, 12), lidMat);
+  sip.position.set(0.16, 1.16, 0.2);
+  group.add(body, inner, bottom, lip, label, lidSkirt, lidDeck, dome, sip);
   return group;
 }
 
@@ -471,13 +609,8 @@ function makeBag(cream, artwork) {
   return group;
 }
 
-function makeLatteProduct(paper, black, sleeve, segments) {
-  const group = new THREE.Group();
-  const cup = makeCup(paper, black, sleeve, segments);
-  const steam = makeSteamPlume();
-  steam.position.y = 1.08;
-  group.add(cup, steam);
-  return group;
+function makeLatteProduct(paper, lidMat, sleeve, segments) {
+  return makeCup(paper, lidMat, sleeve, segments);
 }
 
 function makeSteamPlume() {
@@ -500,29 +633,30 @@ function makeSteamPlume() {
   return group;
 }
 
-function makeEspressoShot(paper, black, segments) {
+function makeEspressoShot(paper, segments) {
   const group = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.5, 1.35, segments, 1, true), paper);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.5, 1.05, segments, 1, true), paper);
   const inner = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.6, 0.48, 1.32, segments, 1, true),
+    new THREE.CylinderGeometry(0.56, 0.48, 1.02, segments, 1, true),
     new THREE.MeshStandardMaterial({ color: 0xe8e0d4, side: THREE.BackSide, roughness: 0.72 })
   );
   const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.5, segments), paper);
   bottom.rotation.x = Math.PI / 2;
-  bottom.position.y = -0.68;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.64, 0.12, segments), black);
-  lid.position.y = 0.72;
+  bottom.position.y = -0.52;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.03, 8, segments), paper);
+  rim.position.y = 0.52;
+  rim.rotation.x = Math.PI / 2;
   const coffee = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.52, 0.52, 0.22, segments),
+    new THREE.CylinderGeometry(0.5, 0.5, 0.2, segments),
     new THREE.MeshStandardMaterial({ color: 0x2a1608, roughness: 0.35, metalness: 0.05 })
   );
-  coffee.position.y = 0.58;
+  coffee.position.y = 0.38;
   const crema = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.5, 0.06, segments),
+    new THREE.CylinderGeometry(0.48, 0.48, 0.07, segments),
     new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.48 })
   );
-  crema.position.y = 0.72;
-  group.add(body, inner, bottom, lid, coffee, crema);
+  crema.position.y = 0.5;
+  group.add(body, inner, bottom, rim, coffee, crema);
   return group;
 }
 
@@ -531,96 +665,94 @@ function makeCinnamonRoll() {
   const dough = new THREE.MeshStandardMaterial({ color: 0xf3d7a6, roughness: 0.58 });
   const spice = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.72 });
   const plate = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.05, 1.05, 0.08, 32),
-    new THREE.MeshStandardMaterial({ color: 0xefeae3, roughness: 0.82 })
+    new THREE.CylinderGeometry(1.12, 1.12, 0.07, 32),
+    new THREE.MeshStandardMaterial({ color: 0xf7f4ef, roughness: 0.82 })
   );
-  plate.position.y = -0.62;
+  plate.position.y = -0.28;
   group.add(plate);
 
-  for (let ring = 0; ring < 7; ring += 1) {
-    const radius = 0.62 - ring * 0.075;
-    const torus = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.085, 10, 36), ring % 2 === 0 ? spice : dough);
+  for (let ring = 0; ring < 6; ring += 1) {
+    const radius = 0.58 - ring * 0.08;
+    const torus = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.09, 10, 36), ring % 2 === 0 ? spice : dough);
     torus.rotation.x = Math.PI / 2;
-    torus.position.y = ring * 0.1 - 0.28;
-    torus.rotation.z = ring * 0.22;
+    torus.position.y = ring * 0.035 - 0.12;
+    torus.rotation.z = ring * 0.28;
     group.add(torus);
   }
 
   const glaze = new THREE.Mesh(
-    new THREE.SphereGeometry(0.2, 16, 12),
+    new THREE.SphereGeometry(0.18, 16, 12),
     new THREE.MeshStandardMaterial({ color: 0xfff4e8, roughness: 0.35, transparent: true, opacity: 0.88 })
   );
-  glaze.position.set(0.12, 0.42, 0.16);
-  glaze.scale.set(1.2, 0.55, 1.1);
+  glaze.position.set(0.1, 0.16, 0.12);
+  glaze.scale.set(1.3, 0.4, 1.15);
   group.add(glaze);
   return group;
 }
 
-function makeMatchaDrink(black, segments) {
-  const group = makeIcedDrink(black, segments);
-  group.traverse((obj) => {
-    if (!obj.isMesh || !obj.material?.color) return;
-    if (obj.material.color.getHex() === 0x6b4224) {
-      obj.material.color.setHex(0x5f9f62);
-    }
-  });
-  return group;
-}
-
-function makeIcedDrink(black, segments) {
+function makeIcedDrink(black, segments, { flavor = "coffee" } = {}) {
   const group = new THREE.Group();
-  const glass = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.55, 0.48, 1.55, segments),
-    new THREE.MeshStandardMaterial({ color: 0x6b4224, roughness: 0.35, metalness: 0.05 })
+  const matcha = flavor === "matcha";
+  const liquid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.54, 0.46, 1.48, segments),
+    new THREE.MeshStandardMaterial({ color: matcha ? 0x86c96f : 0xc49a68, roughness: 0.34 })
   );
-  const creamTop = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.52, 0.52, 0.18, segments),
-    new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.55 })
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.54, 0.035, 8, segments),
+    new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.28 })
   );
-  creamTop.position.y = 0.62;
-  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.58, 0.12, segments), black);
-  lid.position.y = 0.84;
-  const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.15, 12), black);
-  straw.position.set(0.18, 1.28, 0);
-  straw.rotation.z = -0.18;
-  const iceMat = new THREE.MeshStandardMaterial({ color: 0xf0e6d8, roughness: 0.3, transparent: true, opacity: 0.72 });
+  rim.position.y = 0.74;
+  rim.rotation.x = Math.PI / 2;
+  const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.22, 12), black);
+  straw.position.set(0.16, 1.18, 0.04);
+  straw.rotation.z = -0.16;
+  const iceMat = new THREE.MeshStandardMaterial({ color: 0xf7f4ef, roughness: 0.16, transparent: true, opacity: 0.86 });
   [
-    [0.12, 0.2, 0.18],
-    [-0.16, 0.02, 0.12],
-    [0.05, -0.22, 0.16],
-  ].forEach(([x, y, z]) => {
-    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.18), iceMat);
+    [0.1, 0.78, 0.08],
+    [-0.12, 0.74, 0.06],
+    [0.02, 0.86, -0.08],
+    [-0.04, 0.7, -0.12],
+  ].forEach(([x, y, z], index) => {
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.16), iceMat);
     cube.position.set(x, y, z);
-    cube.rotation.set(0.3, 0.4, 0.2);
+    cube.rotation.set(0.35 + index * 0.2, 0.4, 0.18);
     group.add(cube);
   });
-  group.add(glass, creamTop, lid, straw);
+  group.add(liquid, rim, straw);
   return group;
 }
 
-function makeBeans(count) {
+function makeBeans(count, anchor = { x: 1.2, y: -0.7 }) {
   const geometry = new THREE.SphereGeometry(0.09, 10, 8);
   geometry.scale(1, 0.62, 0.82);
-  const material = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 0.8 });
+  const material = new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 0.82, metalness: 0.04 });
   const mesh = new THREE.InstancedMesh(geometry, material, count);
   const dummy = new THREE.Object3D();
   const seeds = [];
   for (let i = 0; i < count; i += 1) {
+    const layer = i % 3;
+    const spreadX = layer === 0 ? 3.4 : layer === 1 ? 2.2 : 1.4;
+    const spreadY = layer === 0 ? 2.2 : layer === 1 ? 1.5 : 1.0;
     seeds.push({
-      x: (Math.random() - 0.45) * 7.5,
-      y: (Math.random() - 0.5) * 4.8,
-      z: (Math.random() - 0.5) * 3.2,
-      s: 0.55 + Math.random() * 1.1,
+      x: anchor.x + (Math.random() - 0.5) * spreadX,
+      y: anchor.y + (Math.random() - 0.5) * spreadY,
+      z: (layer - 1) * 0.55 + (Math.random() - 0.5) * 0.35,
+      s: layer === 0 ? 0.38 + Math.random() * 0.22 : layer === 1 ? 0.58 + Math.random() * 0.28 : 0.82 + Math.random() * 0.35,
       spin: Math.random() * Math.PI,
-      speed: 0.4 + Math.random() * 0.8,
+      speed: 0.12 + Math.random() * 0.16,
+      drift: 0.06 + Math.random() * 0.08,
     });
   }
   return {
     mesh,
     update(time) {
       seeds.forEach((seed, index) => {
-        dummy.position.set(seed.x, seed.y + Math.sin(time * seed.speed + seed.spin) * 0.35, seed.z);
-        dummy.rotation.set(seed.spin + time * 0.2, time * seed.speed, seed.spin);
+        dummy.position.set(
+          seed.x,
+          seed.y + Math.sin(time * seed.speed + seed.spin) * seed.drift,
+          seed.z
+        );
+        dummy.rotation.set(seed.spin + time * 0.1, time * seed.speed * 0.6, seed.spin);
         dummy.scale.setScalar(seed.s);
         dummy.updateMatrix();
         mesh.setMatrixAt(index, dummy.matrix);
@@ -652,21 +784,22 @@ function floorShadow(x, y) {
 
 function sleeveTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 320;
+  canvas.width = 1024;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Sleeve texture context failed.");
-  ctx.fillStyle = "#f7f4ef";
-  ctx.fillRect(0, 0, 512, 320);
-  ctx.fillStyle = "#111";
+  ctx.clearRect(0, 0, 1024, 512);
+  ctx.fillStyle = "#161616";
   ctx.textAlign = "center";
-  ctx.font = "700 64px 'Bebas Neue', sans-serif";
-  ctx.fillText("brewnns", 256, 150);
-  ctx.font = "500 18px Inter, sans-serif";
-  ctx.letterSpacing = "6px";
-  ctx.fillText("COFFEE HOUSE", 256, 188);
+  ctx.font = "700 118px 'Bebas Neue', sans-serif";
+  ctx.fillText("brewnns", 512, 250);
+  ctx.font = "500 26px Inter, sans-serif";
+  ctx.fillText("COFFEE HOUSE", 512, 296);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.offset.x = 0.25;
+  texture.wrapS = THREE.RepeatWrapping;
   return texture;
 }
 
@@ -684,8 +817,8 @@ function bagTexture() {
   ctx.fillText("brewnns", 256, 180);
   ctx.font = "500 16px Inter, sans-serif";
   ctx.fillText("COFFEE HOUSE", 256, 214);
-  ctx.font = "italic 86px 'Cormorant Garamond', serif";
-  ctx.fillText("slow roast", 256, 340);
+  ctx.font = "italic 110px 'Cormorant Garamond', serif";
+  ctx.fillText("slow roast", 256, 348);
   ctx.font = "400 18px Inter, sans-serif";
   ctx.fillStyle = "#555";
   ctx.fillText("citrus", 256, 430);

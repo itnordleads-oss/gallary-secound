@@ -10,6 +10,16 @@
     };
   }
 
+  function heroTravelTrigger() {
+    return {
+      trigger: ".menu-strip",
+      start: "top bottom",
+      endTrigger: ".favorites",
+      end: "top 12%",
+      scrub: SCRUB,
+    };
+  }
+
   function clockScrollTrigger() {
     return {
       trigger: ".clock-sec",
@@ -33,7 +43,7 @@
       return null;
     }
     // Phone scroll stays native — Lenis fights touch scrolling.
-    if (window.matchMedia("(max-width: 980px)").matches || window.matchMedia("(pointer: coarse)").matches) {
+    if (window.matchMedia("(max-width: 760px)").matches || window.matchMedia("(pointer: coarse)").matches) {
       return null;
     }
     if (typeof Lenis === "undefined" || typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
@@ -60,6 +70,7 @@
   window.BrewnnsScroll = {
     SCRUB,
     heroScrollTrigger,
+    heroTravelTrigger,
     clockScrollTrigger,
     favoritesScrollTrigger,
     bindSmoothScroll,

@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,500;1,600;1,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=web2-2" />
+  <link rel="stylesheet" href="styles.css?v=web2-cupmob1" />
   <script type="importmap">
     {
       "imports": {
@@ -42,12 +42,12 @@
       <a href="#menu">Menu</a>
       <a href="#story">Our story</a>
       <a href="#locations">Locations</a>
-      <a class="menu-order" href="#order">Order online</a>
+      <a class="menu-order" href="#coffee-right-now">Order online</a>
       <a class="menu-gift" href="#shop">Gift cards</a>
     </nav>
     <a class="logo" href="#top">brewnns</a>
     <div class="nav-end">
-      <a class="order" href="#order">Cart (0)</a>
+      <a class="order" href="#coffee-right-now">Cart (0)</a>
       <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
     </div>
   </header>
@@ -65,19 +65,21 @@
         <a class="text-link" href="#menu">Explore menu →</a>
       </div>
       <div class="hero-stage" id="heroStage" aria-hidden="true">
-        <div class="spot"></div>
-        <canvas id="heroCanvas"></canvas>
-        <div class="tip tip-latte">House latte <b>$4.50</b></div>
-        <div class="tip tip-roast">Slow roast</div>
-        <div class="fallback-3d">
-          <div class="prod-cup"><div class="lid"></div><div class="sleeve"><span>brewnns</span><small>COFFEE HOUSE</small></div></div>
-          <div class="prod-bag"><strong>brewnns</strong><em>slow roast</em></div>
+        <div class="hero-float" id="heroFloat">
+          <div class="spot"></div>
+          <canvas id="heroCanvas"></canvas>
+          <div class="tip tip-latte">House latte <b>$4.50</b></div>
+          <div class="tip tip-roast">Slow roast</div>
+          <div class="fallback-3d">
+            <div class="prod-cup"><div class="lid"></div><div class="sleeve"><span>brewnns</span><small>COFFEE HOUSE</small></div></div>
+            <div class="prod-bag"><strong>brewnns</strong><em>slow roast</em></div>
+          </div>
         </div>
       </div>
       <div class="hero-meta">
         <span>Open daily · 07:00 – 21:00</span>
         <span>128 Coffee Street · San Francisco, CA</span>
-        <span>Designed by Textura</span>
+        <span>Slow roast · whole bean</span>
       </div>
     </section>
 
@@ -151,11 +153,19 @@
           <li>92 Gilman Street<br />San Francisco, CA</li>
         </ul>
         <div class="clock" aria-hidden="true">
+          <div class="clock-ring"></div>
           <div class="clock-ticks" id="clockTicks"></div>
           <div class="clock-face" id="clockFace"></div>
           <div class="clock-drink">
             <canvas id="clockCanvas"></canvas>
+            <div class="iced clock-fallback" aria-hidden="true">
+              <span class="straw"></span>
+              <span class="ice i1"></span>
+              <span class="ice i2"></span>
+              <span class="ice i3"></span>
+            </div>
           </div>
+          <div class="clock-hand-wrap" aria-hidden="true"><span class="clock-hand"></span></div>
         </div>
         <div class="clock-aside">
           <p>Open daily for pour-overs, espresso, and slow mornings. Same cup, every hour.</p>
@@ -168,31 +178,52 @@
       <h2>The city never stops.<br />Your coffee shouldn’t<br />slow you down.</h2>
       <div class="city-stage" id="cityStage" aria-hidden="true">
         <canvas id="cityCanvas"></canvas>
+        <div class="fallback-3d city-fallback">
+          <div class="prod-cup"><div class="lid"></div><div class="sleeve"><span>brewnns</span><small>COFFEE HOUSE</small></div></div>
+        </div>
       </div>
     </section>
 
-    <section class="section dark now-sec" id="order">
-      <div class="now-head">
-        <h2><span>Right</span><span>now</span></h2>
-        <p class="now-copy">Stay for a conversation or leave with the cup in your hand — both work. Nothing here is rushed, and nothing keeps you longer than you meant to stay.</p>
-        <a class="now-cta" href="#order">Shop right now →</a>
+    <section class="section dark coffee-right-now" id="coffee-right-now" aria-label="Coffee for right now">
+      <div class="now-bridge" aria-hidden="true">
+        <span class="bridge-bean"></span>
+        <span class="bridge-bean"></span>
+        <span class="bridge-bean"></span>
+        <span class="bridge-bean"></span>
+        <span class="bridge-bean"></span>
+        <span class="bridge-bean"></span>
       </div>
-      <div class="table-scene">
-        <div class="table"></div>
-        <div class="still-life">
-          <div class="plate p-left"><div class="matcha-slice"></div></div>
-          <div class="receipt">
-            <strong>brewnns</strong>
-            <p>128 Coffee Street</p>
-            <p>Iced matcha · 1</p>
-            <p>Matcha slice · 1</p>
-            <b>$11.50</b>
-            <i></i>
+      <div class="crn">
+        <h2 class="crn-title">
+          <span>Coffee for</span>
+          <span>right now</span>
+        </h2>
+        <div class="crn-stage">
+          <div class="plate plate-left" data-layer="plate">
+            <div class="matcha-slice" aria-hidden="true"></div>
           </div>
-          <div class="now-drink">
-            <div class="shot matcha tall"></div>
+          <article class="receipt" data-layer="receipt">
+            <p class="receipt-brand">brewnns</p>
+            <p class="receipt-house">coffee house</p>
+            <div class="receipt-shot" aria-hidden="true">
+              <span class="shot-straw"></span>
+              <span class="shot-glass"></span>
+            </div>
+            <ul>
+              <li>Iced matcha</li>
+              <li>Pastry</li>
+            </ul>
+            <p class="receipt-note">Skip the line. Order ahead.</p>
+            <i class="receipt-bars" aria-hidden="true"></i>
+          </article>
+          <div class="plate plate-right" data-layer="plate">
+            <div class="matcha-cake" aria-hidden="true"></div>
+            <i class="cake-fork" aria-hidden="true"></i>
           </div>
-          <div class="plate p-right"><div class="cake"></div></div>
+        </div>
+        <div class="crn-side">
+          <p class="crn-copy">Stay, or take it with you.</p>
+          <a class="crn-cta" href="#coffee-right-now">Order right now <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </section>
@@ -205,38 +236,43 @@
         <p>128 Coffee Street<br />San Francisco, CA 94103</p>
       </div>
       <div>
-        <h4>Shop</h4>
-        <a href="#shop">Bags</a>
-        <a href="#shop">Gear</a>
-        <a href="#order">Subscription</a>
+        <h3>Shop</h3>
+        <a href="#shop">Coffee</a>
+        <a href="#shop">Merch</a>
+        <a href="#shop">Gift cards</a>
       </div>
       <div>
-        <h4>Info</h4>
-        <a href="#story">Our story</a>
+        <h3>Menu</h3>
+        <a href="#menu">Favorites</a>
         <a href="#menu">Journal</a>
         <a href="#menu">Brew guides</a>
       </div>
       <div>
-        <h4>Visit us</h4>
-        <a href="#locations">Tokyo</a>
-        <a href="#locations">Kyoto</a>
-        <a href="#locations">London</a>
-        <a href="#locations">Shanghai</a>
+        <h3>About</h3>
+        <a href="#story">Our story</a>
+        <a href="#story">Hours</a>
+        <a href="#locations">Locations</a>
       </div>
       <div>
-        <h4>Contact</h4>
-        <a href="#locations">Say hello</a>
-        <a href="#order">Wholesale</a>
+        <h3>Visit us</h3>
+        <a href="#story">129 Knott Street</a>
+        <a href="#story">256 Mullner Street</a>
+        <a href="#story">92 Gilman Street</a>
+      </div>
+      <div>
+        <h3>Contact</h3>
+        <a href="#locations">Hello</a>
+        <a href="#coffee-right-now">Wholesale</a>
       </div>
     </div>
-    <div class="foot-bottom"><span>© 2026 Brewnns Coffee House</span><span>Gallery Site 02 · rebuilt from web2.mp4</span></div>
+    <div class="foot-bottom"><span>© 2026 Brewnns Coffee House</span><span>San Francisco · Open daily</span></div>
   </footer>
 
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
-  <script defer src="scroll-motion.js?v=web2-2"></script>
-  <script defer type="module" src="world.js?v=web2-2"></script>
-  <script defer src="main.js?v=web2-2"></script>
+  <script defer src="scroll-motion.js?v=web2-ref1"></script>
+  <script defer type="module" src="world.js?v=web2-cupmob4"></script>
+  <script defer src="main.js?v=web2-mq1"></script>
 </body>
 </html>
