@@ -10,12 +10,13 @@
     };
   }
 
+  // Desktop product travel continues through menu into Favorites — continuity, not a hard drop.
   function heroTravelTrigger() {
     return {
-      trigger: ".menu-strip",
-      start: "top bottom",
+      trigger: ".hero",
+      start: "top top",
       endTrigger: ".favorites",
-      end: "top 12%",
+      end: "top 28%",
       scrub: SCRUB,
     };
   }
@@ -23,7 +24,7 @@
   function clockScrollTrigger() {
     return {
       trigger: ".clock-sec",
-      start: "top 55%",
+      start: "top 70%",
       end: "bottom top",
       scrub: SCRUB,
     };
@@ -34,6 +35,15 @@
       trigger: ".favorites",
       start: "top 92%",
       end: "center 55%",
+      scrub: SCRUB,
+    };
+  }
+
+  function cityScrollTrigger() {
+    return {
+      trigger: ".city-sec",
+      start: "top bottom",
+      end: "bottom top",
       scrub: SCRUB,
     };
   }
@@ -51,11 +61,11 @@
     }
 
     const lenis = new Lenis({
-      duration: 1.12,
+      duration: 1.05,
       easing: (t) => Math.min(1, 1.001 - 2 ** (-10 * t)),
       smoothWheel: true,
       syncTouch: false,
-      wheelMultiplier: 0.92,
+      wheelMultiplier: 0.9,
     });
 
     lenis.on("scroll", ScrollTrigger.update);
@@ -73,6 +83,8 @@
     heroTravelTrigger,
     clockScrollTrigger,
     favoritesScrollTrigger,
+    cityScrollTrigger,
     bindSmoothScroll,
+    revision: "web2-m4",
   };
 })();
