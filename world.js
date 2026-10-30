@@ -22,7 +22,8 @@ function bootWorld() {
     || coarse
     || window.matchMedia("(prefers-reduced-data: reduce)").matches
     || (navigator.hardwareConcurrency || 8) <= 4;
-  const segments = lowPower ? 24 : narrow ? 28 : 36;
+  // Lower tessellation on tablet/phone — main.mp4 was captured on high-DPR tablet.
+  const segments = lowPower ? 20 : narrow ? 24 : tablet ? 26 : 32;
 
   const heroCanvas = document.getElementById("heroCanvas");
   const clockCanvas = document.getElementById("clockCanvas");
@@ -43,7 +44,13 @@ function bootWorld() {
     fov: narrow ? 36 : tablet ? 36 : 34,
     z: narrow ? 5.95 : tablet ? 5.95 : 5.55,
     lowPower,
+    // Hero product edges need MSAA even on coarse/tablet — main2.mp4 showed stair-steps.
+    antialias: true,
+    quality: "hero",
   });
+  // Soft studio env — materials respond with highlights without heavy post-processing.
+  const heroEnv = makeWarmEnvMap(hero.renderer);
+  applyProductEnv(mats, heroEnv, narrow ? 0.28 : tablet ? 0.34 : 0.4);
   const cup = makeCup(mats, segments, { sleeve: true });
   const bag = makeBag(mats);
   const cardA = makePackCard(mats, 0.92);
@@ -72,9 +79,9 @@ function bootWorld() {
     cardA.visible = false;
     cardB.visible = false;
   }
-  const heroLights = makeHeroLights(narrow ? 0.96 : 1.08);
-  const cupShadow = floorShadow(cupHome.x, narrow ? -0.92 : -1.02, narrow ? 1.65 : 2.0);
-  const bagShadow = floorShadow(bagHome.x + 0.08, narrow ? -0.72 : -0.78, narrow ? 1.35 : 1.55);
+  const heroLights = makeHeroLights(narrow ? 1.0 : 1.1);
+  const cupShadow = floorShadow(cupHome.x, narrow ? -0.92 : -1.02, narrow ? 1.75 : 2.15, 0.55);
+  const bagShadow = floorShadow(bagHome.x + 0.08, narrow ? -0.72 : -0.78, narrow ? 1.4 : 1.65, 0.38);
   hero.scene.add(heroLights.group, cup, bag, cardA, cardB, cupShadow, bagShadow);
   hero.group = { cup, bag, cardA, cardB };
   hero.baseCam = {
@@ -89,6 +96,7 @@ function bootWorld() {
     fov: narrow ? 34 : 32,
     z: narrow ? 5.6 : tablet ? 5.4 : 5.0,
     lowPower,
+    lightTone: true,
   });
   const iced = makeIcedDrink(mats, segments, { flavor: "coffee" });
   iced.position.y = narrow ? -0.08 : -0.35;
@@ -103,6 +111,7 @@ function bootWorld() {
     fov: narrow ? 36 : tablet ? 36 : 34,
     z: narrow ? 6.8 : tablet ? 8.0 : 7.4,
     lowPower,
+    lightTone: true,
   });
   city.camera.position.x = narrow ? 0 : tablet ? 0.12 : 0.42;
   city.camera.lookAt(narrow ? 0 : 0.18, narrow ? -0.2 : -0.32, 0);
@@ -211,28 +220,48 @@ function bootWorld() {
   );
   intro.to(heroLights.sweep, { intensity: 0.12, duration: 0.42, ease: "power2.inOut" }, 0.46);
 
-  // Extremely subtle idle (~2–3px). Mobile intensity ~45%.
+  // Extremely subtle idle (~2–3px). Mobile intensity ~45%. Paused when hero offscreen.
+  const idleTweens = [];
   if (!prefersReduced) {
-    const idleAmp = narrow ? 0.45 : 1;
-    gsap.to(idle, { cupY: -0.018 * idleAmp, cupZ: -0.01 * idleAmp, duration: 6.2, yoyo: true, repeat: -1, ease: "sine.inOut" });
-    gsap.to(idle, { bagY: 0.016 * idleAmp, bagZ: 0.014 * idleAmp, duration: 7.1, yoyo: true, repeat: -1, ease: "sine.inOut" });
-    gsap.to(idle, { camX: 0.012 * idleAmp, camY: -0.008 * idleAmp, duration: 7.8, yoyo: true, repeat: -1, ease: "sine.inOut" });
+    const idleAmp = narrow ? 0.45 : tablet ? 0.7 : 1;
+    idleTweens.push(
+      gsap.to(idle, { cupY: -0.018 * idleAmp, cupZ: -0.01 * idleAmp, duration: 6.2, yoyo: true, repeat: -1, ease: "sine.inOut" }),
+      gsap.to(idle, { bagY: 0.016 * idleAmp, bagZ: 0.014 * idleAmp, duration: 7.1, yoyo: true, repeat: -1, ease: "sine.inOut" }),
+      gsap.to(idle, { camX: 0.012 * idleAmp, camY: -0.008 * idleAmp, duration: 7.8, yoyo: true, repeat: -1, ease: "sine.inOut" })
+    );
   }
+  const setHeroIdle = (on) => {
+    idleTweens.forEach((tw) => {
+      if (on) tw.resume();
+      else tw.pause();
+    });
+  };
 
   const heroStage = document.getElementById("heroStage");
   if (!heroStage) throw new Error("Hero stage markup is missing.");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const heroStageBox = { left: 0, top: 0, width: 1, height: 1, stale: true };
+  const refreshHeroStageBox = () => {
+    const box = heroStage.getBoundingClientRect();
+    heroStageBox.left = box.left;
+    heroStageBox.top = box.top;
+    heroStageBox.width = box.width || 1;
+    heroStageBox.height = box.height || 1;
+    heroStageBox.stale = false;
+  };
   if (finePointer && !prefersReduced) {
+    heroStage.addEventListener("pointerenter", refreshHeroStageBox, { passive: true });
+    window.addEventListener("resize", () => { heroStageBox.stale = true; }, { passive: true });
     heroStage.addEventListener("pointermove", (event) => {
-      const box = heroStage.getBoundingClientRect();
+      if (heroStageBox.stale) refreshHeroStageBox();
       // Normalized −1…1 target; applied via lerp + ±1° cup / stronger bag.
-      mouse.x = ((event.clientX - box.left) / box.width - 0.5) * 2;
-      mouse.y = ((event.clientY - box.top) / box.height - 0.5) * 2;
-    });
+      mouse.x = ((event.clientX - heroStageBox.left) / heroStageBox.width - 0.5) * 2;
+      mouse.y = ((event.clientY - heroStageBox.top) / heroStageBox.height - 0.5) * 2;
+    }, { passive: true });
     heroStage.addEventListener("pointerleave", () => {
       mouse.x = 0;
       mouse.y = 0;
-    });
+    }, { passive: true });
   }
 
   const SCRUB = window.BrewnnsScroll?.SCRUB ?? 0.5;
@@ -399,61 +428,68 @@ function bootWorld() {
   let running = true;
   let favInView = true;
 
+  let heroCamDirty = true;
   function tick() {
     if (!running) return;
     const t = clockObj.getElapsedTime();
-    // Lerp pointer — never bind raw coords to transforms.
-    pointer.x += (mouse.x - pointer.x) * 0.075;
-    pointer.y += (mouse.y - pointer.y) * 0.075;
-    const cupTiltX = pointer.x * DEG; // ±1°
-    const cupTiltY = pointer.y * DEG;
-    const bagTiltX = pointer.x * DEG * 1.55;
-    const bagTiltY = pointer.y * DEG * 1.35;
 
-    cup.position.set(
-      cupPose.x,
-      cupPose.y + idle.cupY + scrollFx.cupY,
-      cupPose.z
-    );
-    cup.rotation.set(
-      cupPose.rx - cupTiltY,
-      cupPose.ry + cupTiltX,
-      cupPose.rz + idle.cupZ
-    );
-    cup.scale.setScalar(cupPose.s);
+    // Only pay hero transform cost while the hero canvas is on screen.
+    if (hero.visible) {
+      pointer.x += (mouse.x - pointer.x) * 0.075;
+      pointer.y += (mouse.y - pointer.y) * 0.075;
+      const cupTiltX = pointer.x * DEG;
+      const cupTiltY = pointer.y * DEG;
+      const bagTiltX = pointer.x * DEG * 1.55;
+      const bagTiltY = pointer.y * DEG * 1.35;
 
-    bag.position.set(
-      bagPose.x,
-      bagPose.y + idle.bagY + scrollFx.bagY,
-      bagPose.z
-    );
-    bag.rotation.set(
-      bagPose.rx - bagTiltY,
-      bagPose.ry + bagTiltX,
-      bagPose.rz + idle.bagZ
-    );
-    bag.scale.setScalar(bagPose.s);
+      cup.position.set(cupPose.x, cupPose.y + idle.cupY + scrollFx.cupY, cupPose.z);
+      cup.rotation.set(cupPose.rx - cupTiltY, cupPose.ry + cupTiltX, cupPose.rz + idle.cupZ);
+      cup.scale.setScalar(cupPose.s);
 
-    cardA.position.y = cardPose.aY + idle.bagY * 0.35 + scrollFx.bagY * 0.4;
-    cardA.scale.setScalar(cardPose.aS);
-    cardB.position.y = cardPose.bY + idle.bagY * 0.22 + scrollFx.bagY * 0.3;
-    cardB.scale.setScalar(cardPose.bS);
+      bag.position.set(bagPose.x, bagPose.y + idle.bagY + scrollFx.bagY, bagPose.z);
+      bag.rotation.set(bagPose.rx - bagTiltY, bagPose.ry + bagTiltX, bagPose.rz + idle.bagZ);
+      bag.scale.setScalar(bagPose.s);
 
-    // Almost imperceptible camera drift + tiny pointer depth.
-    hero.camera.position.x = hero.baseCam.x + idle.camX + pointer.x * 0.028;
-    hero.camera.position.y = hero.baseCam.y + idle.camY - pointer.y * 0.02;
-    hero.camera.position.z = hero.baseCam.z + scrollFx.camZ;
-    hero.camera.lookAt(0.05, -0.05, 0);
+      if (cardA.visible) {
+        cardA.position.y = cardPose.aY + idle.bagY * 0.35 + scrollFx.bagY * 0.4;
+        cardA.scale.setScalar(cardPose.aS);
+      }
+      if (cardB.visible) {
+        cardB.position.y = cardPose.bY + idle.bagY * 0.22 + scrollFx.bagY * 0.3;
+        cardB.scale.setScalar(cardPose.bS);
+      }
 
-    cupShadow.position.x = cup.position.x;
-    bagShadow.position.x = bag.position.x + 0.08;
+      const camX = hero.baseCam.x + idle.camX + pointer.x * 0.028;
+      const camY = hero.baseCam.y + idle.camY - pointer.y * 0.02;
+      const camZ = hero.baseCam.z + scrollFx.camZ;
+      if (
+        heroCamDirty
+        || Math.abs(hero.camera.position.x - camX) > 0.0004
+        || Math.abs(hero.camera.position.y - camY) > 0.0004
+        || Math.abs(hero.camera.position.z - camZ) > 0.0004
+      ) {
+        hero.camera.position.set(camX, camY, camZ);
+        hero.camera.lookAt(0.05, -0.05, 0);
+        heroCamDirty = false;
+      }
+
+      cupShadow.position.x = cup.position.x;
+      bagShadow.position.x = bag.position.x + 0.08;
+    } else if (mouse.x !== 0 || mouse.y !== 0 || pointer.x !== 0 || pointer.y !== 0) {
+      mouse.x = 0;
+      mouse.y = 0;
+      pointer.x *= 0.85;
+      pointer.y *= 0.85;
+    }
 
     if (city.visible) beans.update(t);
     if (favInView) favMotion.update(t);
 
-    stages.forEach((stage) => {
-      if (stage.visible) stage.render();
-    });
+    if (hero.visible) hero.render();
+    if (clock.visible) clock.render();
+    if (city.visible) city.render();
+    if (favMotion.stage.visible) favMotion.stage.render();
+
     frameId = requestAnimationFrame(tick);
   }
 
@@ -467,11 +503,18 @@ function bootWorld() {
           favMotion.stage.visible = entry.isIntersecting;
         }
       });
+      setHeroIdle(hero.visible && !document.hidden);
+      if (hero.visible) heroCamDirty = true;
       running = (stages.some((stage) => stage.visible) || favInView) && !document.hidden;
-      if (running) tick();
-      else cancelAnimationFrame(frameId);
+      if (running) {
+        cancelAnimationFrame(frameId);
+        frameId = requestAnimationFrame(tick);
+      } else {
+        cancelAnimationFrame(frameId);
+      }
     },
-    { rootMargin: "10% 0px", threshold: 0.01 }
+    // Tighter margin — avoid rendering canvases that are barely offscreen.
+    { rootMargin: "6% 0px", threshold: 0.01 }
   );
   [heroCanvas, clockCanvas, cityCanvas].forEach((el) => visibility.observe(el));
   const favPreview = document.querySelector(".fav-preview");
@@ -479,11 +522,22 @@ function bootWorld() {
 
   document.addEventListener("visibilitychange", () => {
     running = !document.hidden && (stages.some((stage) => stage.visible) || favInView);
-    if (running) tick();
-    else cancelAnimationFrame(frameId);
+    setHeroIdle(hero.visible && !document.hidden);
+    if (running) {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(frameId);
+    }
   });
 
-  stages.forEach((stage) => { stage.visible = true; });
+  // Only hero starts hot — other canvases wait for IntersectionObserver.
+  stages.forEach((stage) => { stage.visible = false; });
+  hero.visible = true;
+  favMotion.stage.visible = false;
+  favInView = false;
+  running = true;
+  setHeroIdle(true);
   tick();
 
   const frameHero = () => {
@@ -553,6 +607,7 @@ function setupFavorites({ canvas, mats, segments, lowPower }) {
     fov: favNarrow ? 36 : 34,
     z: favNarrow ? 5.35 : 5.0,
     lowPower,
+    lightTone: true,
   });
   stage.baseCamZ = favNarrow ? 4.9 : 5.0;
 
@@ -730,15 +785,25 @@ function setupFavorites({ canvas, mats, segments, lowPower }) {
   const preview = canvas.closest(".fav-preview");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   if (preview && finePointer) {
-    preview.addEventListener("pointermove", (event) => {
+    const favBox = { left: 0, top: 0, width: 1, height: 1, stale: true };
+    const refreshFavBox = () => {
       const box = preview.getBoundingClientRect();
-      tilt.y = ((event.clientX - box.left) / box.width - 0.5) * 0.35;
-      tilt.x = ((event.clientY - box.top) / box.height - 0.5) * -0.25;
-    });
+      favBox.left = box.left;
+      favBox.top = box.top;
+      favBox.width = box.width || 1;
+      favBox.height = box.height || 1;
+      favBox.stale = false;
+    };
+    preview.addEventListener("pointerenter", refreshFavBox, { passive: true });
+    preview.addEventListener("pointermove", (event) => {
+      if (favBox.stale) refreshFavBox();
+      tilt.y = ((event.clientX - favBox.left) / favBox.width - 0.5) * 0.35;
+      tilt.x = ((event.clientY - favBox.top) / favBox.height - 0.5) * -0.25;
+    }, { passive: true });
     preview.addEventListener("pointerleave", () => {
       tilt.x = 0;
       tilt.y = 0;
-    });
+    }, { passive: true });
   }
 
   return {
@@ -772,28 +837,42 @@ function setupFavorites({ canvas, mats, segments, lowPower }) {
   };
 }
 
-function createStage(canvas, { fov, z, lowPower }) {
+function createStage(canvas, { fov, z, lowPower, lightTone = false, antialias, quality = "secondary" }) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 40);
   camera.position.set(0, 0, z);
+  const useAA = antialias ?? (quality === "hero" || !lowPower);
   const renderer = new THREE.WebGLRenderer({
     canvas,
     alpha: true,
-    antialias: !lowPower,
-    powerPreference: lowPower ? "low-power" : "high-performance",
+    antialias: useAA,
+    powerPreference: lowPower && quality !== "hero" ? "low-power" : "high-performance",
   });
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.04;
+  // Hero keeps ACES for product photography response; secondary stages stay cheaper.
+  if (lightTone) {
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.toneMappingExposure = 1;
+  } else {
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+  }
   renderer.shadowMap.enabled = false;
 
+  let lastW = 0;
+  let lastH = 0;
+  let lastDpr = 0;
   const fit = () => {
     const width = canvas.clientWidth || canvas.parentElement?.clientWidth || 1;
     const height = canvas.clientHeight || canvas.parentElement?.clientHeight || 1;
+    const dpr = capDpr(width, lowPower, quality);
+    if (width === lastW && height === lastH && dpr === lastDpr) return;
+    lastW = width;
+    lastH = height;
+    lastDpr = dpr;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    const dpr = capDpr(width, lowPower);
     renderer.setPixelRatio(dpr);
     renderer.setSize(width, height, false);
   };
@@ -813,20 +892,88 @@ function createStage(canvas, { fov, z, lowPower }) {
   };
 }
 
-function capDpr(width, lowPower) {
+function capDpr(_canvasWidth, lowPower, quality = "secondary") {
   const dpr = window.devicePixelRatio || 1;
-  if (width < 760) return Math.min(dpr, 1.25);
-  if (width < 1100 || lowPower) return Math.min(dpr, 1.5);
-  return Math.min(dpr, 2);
+  // Tier by viewport width (not canvas half-width) so tablet heroes keep clean edges.
+  // Never use unrestricted devicePixelRatio. Hero keeps a mild supersample floor for AA.
+  const vw = window.innerWidth || _canvasWidth || 1;
+  if (quality === "hero") {
+    if (vw < 760) return Math.min(Math.max(dpr, 1.25), 1.45);
+    if (vw < 1100) return Math.min(Math.max(dpr, 1.35), 1.6);
+    return Math.min(Math.max(dpr, 1.35), lowPower ? 1.55 : 1.85);
+  }
+  if (vw < 760) return Math.min(dpr, 1.3);
+  if (vw < 1100 || lowPower) return Math.min(dpr, 1.4);
+  return Math.min(dpr, 1.55);
+}
+
+function makeWarmEnvMap(renderer) {
+  const size = 64;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const i = (y * size + x) * 4;
+      const v = 1 - y / size;
+      data[i] = Math.round(28 + 170 * v);
+      data[i + 1] = Math.round(18 + 110 * v);
+      data[i + 2] = Math.round(12 + 70 * v);
+      data[i + 3] = 255;
+      const dx = x - size * 0.72;
+      const dy = y - size * 0.22;
+      if (dx * dx + dy * dy < 90) {
+        data[i] = 255;
+        data[i + 1] = 224;
+        data[i + 2] = 176;
+      }
+      const bx = x - size * 0.18;
+      const by = y - size * 0.55;
+      if (bx * bx + by * by < 55) {
+        data[i] = Math.max(data[i], 140);
+        data[i + 1] = Math.max(data[i + 1], 150);
+        data[i + 2] = Math.max(data[i + 2], 175);
+      }
+    }
+  }
+  const equirect = new THREE.DataTexture(data, size, size);
+  equirect.mapping = THREE.EquirectangularReflectionMapping;
+  equirect.colorSpace = THREE.SRGBColorSpace;
+  equirect.needsUpdate = true;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = pmrem.fromEquirectangular(equirect).texture;
+  equirect.dispose();
+  pmrem.dispose();
+  return env;
+}
+
+function applyProductEnv(mats, env, intensity = 0.5) {
+  const scale = {
+    paper: 0.85,
+    wall: 1,
+    black: 1.45,
+    cream: 0.55,
+    sleeve: 0.7,
+    bagArt: 0.5,
+  };
+  Object.keys(scale).forEach((key) => {
+    const mat = mats[key];
+    if (!mat) return;
+    mat.envMap = env;
+    mat.envMapIntensity = intensity * scale[key];
+    mat.needsUpdate = true;
+  });
 }
 
 function sharedMaterials() {
+  const sleeveMap = sleeveTexture();
+  const bagMap = bagTexture();
+  // Soft paper response — not plastic, not dead matte (main2.mp4 looked flat).
   return {
-    paper: new THREE.MeshStandardMaterial({ color: 0xf3eee6, roughness: 0.64, metalness: 0.03 }),
-    wall: new THREE.MeshStandardMaterial({ color: 0xf6f3ee, roughness: 0.76, metalness: 0.02 }),
+    paper: new THREE.MeshStandardMaterial({ color: 0xf3eee6, roughness: 0.58, metalness: 0.04 }),
+    wall: new THREE.MeshStandardMaterial({ color: 0xf7f3ed, roughness: 0.62, metalness: 0.035 }),
     inner: new THREE.MeshStandardMaterial({ color: 0xe7e1d6, side: THREE.BackSide, roughness: 0.86 }),
-    black: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.34, metalness: 0.18 }),
-    cream: new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.48, metalness: 0.02 }),
+    // Lift crushed blacks + tighter roughness so lid curvature reads on dark bg.
+    black: new THREE.MeshStandardMaterial({ color: 0x1c1b1a, roughness: 0.28, metalness: 0.22 }),
+    cream: new THREE.MeshStandardMaterial({ color: 0xf5f1eb, roughness: 0.42, metalness: 0.03 }),
     coffee: new THREE.MeshStandardMaterial({ color: 0x2a1608, roughness: 0.36, metalness: 0.04 }),
     crema: new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.5 }),
     matcha: new THREE.MeshStandardMaterial({ color: 0x86c96f, roughness: 0.36 }),
@@ -835,13 +982,17 @@ function sharedMaterials() {
     spice: new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.72 }),
     ice: new THREE.MeshStandardMaterial({ color: 0xf7f4ef, roughness: 0.18, transparent: true, opacity: 0.84 }),
     sleeve: new THREE.MeshStandardMaterial({
-      map: sleeveTexture(),
-      roughness: 0.82,
-      metalness: 0,
+      map: sleeveMap,
+      roughness: 0.74,
+      metalness: 0.02,
       transparent: true,
       depthWrite: false,
     }),
-    bagArt: new THREE.MeshStandardMaterial({ map: bagTexture(), roughness: 0.7 }),
+    bagArt: new THREE.MeshStandardMaterial({
+      map: bagMap,
+      roughness: 0.55,
+      metalness: 0.04,
+    }),
   };
 }
 
@@ -860,18 +1011,23 @@ function warmLights(intensity = 1) {
 
 function makeHeroLights(intensity = 1) {
   const group = new THREE.Group();
-  group.add(new THREE.AmbientLight(0xffe2c0, 0.32 * intensity));
-  const key = new THREE.DirectionalLight(0xffd4a0, 1.42 * intensity);
-  key.position.set(2.6, 3.8, 3.2);
-  const fill = new THREE.DirectionalLight(0xb8c4d8, 0.28 * intensity);
-  fill.position.set(-3.4, 0.8, 2.4);
-  const rim = new THREE.DirectionalLight(0xffc08a, 0.72 * intensity);
-  rim.position.set(1.8, 2.2, -2.6);
-  const kick = new THREE.PointLight(0xffb070, 0.55 * intensity, 10);
-  kick.position.set(-0.2, 0.6, 1.8);
+  const narrow = window.innerWidth < 760;
+  // Product-shoot trio + cheap kick/hemisphere — dimensional without many lights.
+  group.add(new THREE.AmbientLight(0xffe2c0, 0.28 * intensity));
+  const hemi = new THREE.HemisphereLight(0xffe6c8, 0x1a100c, 0.32 * intensity);
+  hemi.position.set(0, 2.4, 0);
+  const key = new THREE.DirectionalLight(0xffd4a0, 1.48 * intensity);
+  key.position.set(2.8, 4.1, 3.0);
+  const fill = new THREE.DirectionalLight(0xb8c4d8, 0.3 * intensity);
+  fill.position.set(-3.5, 0.9, 2.5);
+  const rim = new THREE.DirectionalLight(0xffc08a, (narrow ? 0.92 : 1.05) * intensity);
+  rim.position.set(1.6, 2.4, -2.8);
+  // Soft front kick restores lid/cup highlight without realtime shadows.
+  const kick = new THREE.PointLight(0xffb070, (narrow ? 0.42 : 0.55) * intensity, 10);
+  kick.position.set(-0.15, 0.55, 1.85);
   const sweep = new THREE.PointLight(0xffe0b8, 0, 8);
   sweep.position.set(0.85, 1.1, -0.15);
-  group.add(key, fill, rim, kick, sweep);
+  group.add(hemi, key, fill, rim, kick, sweep);
   return { group, sweep, key, fill, rim };
 }
 
@@ -935,7 +1091,15 @@ function makeBag(mats) {
   fold.rotation.x = -0.22;
   const face = new THREE.Mesh(new THREE.PlaneGeometry(1.32, 1.78), mats.bagArt);
   face.position.z = 0.2;
-  group.add(body, fold, face);
+  // Soft edge strip catches rim light so the pack reads as volume, not a flat card.
+  const edgeMat = mats.cream.clone();
+  edgeMat.color = new THREE.Color(0xe8e0d4);
+  edgeMat.roughness = 0.48;
+  const leftEdge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.02, 0.36), edgeMat);
+  leftEdge.position.set(-0.72, 0, 0);
+  const rightEdge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.02, 0.36), edgeMat);
+  rightEdge.position.set(0.72, 0, 0);
+  group.add(body, fold, face, leftEdge, rightEdge);
   return group;
 }
 
@@ -1146,17 +1310,17 @@ function makeBeans(count, anchor = { x: 1.2, y: -0.7 }) {
   };
 }
 
-function floorShadow(x, y, size = 2.1) {
+function floorShadow(x, y, size = 2.1, strength = 0.48) {
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 64;
+  canvas.width = canvas.height = 128;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Shadow texture context failed.");
-  const gradient = ctx.createRadialGradient(32, 32, 4, 32, 32, 32);
-  gradient.addColorStop(0, "rgba(0,0,0,0.42)");
-  gradient.addColorStop(0.45, "rgba(0,0,0,0.18)");
+  const gradient = ctx.createRadialGradient(64, 64, 6, 64, 64, 64);
+  gradient.addColorStop(0, `rgba(0,0,0,${strength.toFixed(2)})`);
+  gradient.addColorStop(0.42, `rgba(0,0,0,${(strength * 0.42).toFixed(2)})`);
   gradient.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillRect(0, 0, 128, 128);
   const texture = new THREE.CanvasTexture(canvas);
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(size, size * 0.72),
@@ -1182,7 +1346,10 @@ function sleeveTexture() {
   ctx.fillText("COFFEE HOUSE", 256, 154);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 2;
+  texture.anisotropy = 4;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   texture.offset.x = 0.25;
   texture.wrapS = THREE.RepeatWrapping;
   return texture;
@@ -1194,8 +1361,17 @@ function bagTexture() {
   canvas.height = 720;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Bag texture context failed.");
-  ctx.fillStyle = "#f7f4ef";
+  // Soft paper grain so the pack is not a flat white slab.
+  const paper = ctx.createLinearGradient(0, 0, 512, 720);
+  paper.addColorStop(0, "#faf7f2");
+  paper.addColorStop(0.45, "#f4efe7");
+  paper.addColorStop(1, "#ebe4d8");
+  ctx.fillStyle = paper;
   ctx.fillRect(0, 0, 512, 720);
+  ctx.fillStyle = "rgba(120, 90, 55, 0.05)";
+  for (let i = 0; i < 40; i += 1) {
+    ctx.fillRect(0, i * 18, 512, 1);
+  }
   ctx.fillStyle = "#111";
   ctx.textAlign = "center";
   ctx.font = "700 58px 'Bebas Neue', sans-serif";
@@ -1209,5 +1385,9 @@ function bagTexture() {
   ctx.fillText("citrus · brown sugar · almond", 256, 450);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   return texture;
 }

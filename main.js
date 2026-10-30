@@ -70,14 +70,47 @@
     });
   };
 
+  // Avoid elementsFromPoint on every scroll frame — use section IO instead.
+  let navTheme = "dark";
+  const applyNavTheme = (theme) => {
+    if (nav.classList.contains("open") && isPhone) theme = "dark";
+    if (theme === navTheme && nav.dataset.theme === theme) return;
+    navTheme = theme;
+    nav.dataset.theme = theme;
+  };
   const setNavTheme = () => {
-    // Probe below the sticky nav so the nav itself does not steal the hit.
     const probeY = Math.min(window.innerHeight - 8, Math.max(88, nav.getBoundingClientRect().bottom + 12));
     const sample = document.elementsFromPoint(window.innerWidth / 2, probeY);
     const light = sample.find((node) => node instanceof Element && node.closest(".light"))?.closest(".light");
-    nav.dataset.theme = light ? "light" : "dark";
-    if (nav.classList.contains("open") && isPhone) nav.dataset.theme = "dark";
+    applyNavTheme(light ? "light" : "dark");
   };
+  const themeTargets = [...document.querySelectorAll("main > section, .site-footer")];
+  const themeHits = new Map();
+  const syncNavThemeFromHits = () => {
+    let light = false;
+    themeHits.forEach((on, el) => {
+      if (on && el.classList.contains("light")) light = true;
+    });
+    applyNavTheme(light ? "light" : "dark");
+  };
+  if ("IntersectionObserver" in window && themeTargets.length) {
+    const navH = () => Math.max(56, nav.getBoundingClientRect().height || 64);
+    const themeIO = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          themeHits.set(entry.target, entry.isIntersecting);
+        });
+        syncNavThemeFromHits();
+      },
+      {
+        // Band just under sticky nav — no per-frame hit-testing.
+        root: null,
+        rootMargin: `-${navH() + 8}px 0px -62% 0px`,
+        threshold: 0,
+      }
+    );
+    themeTargets.forEach((el) => themeIO.observe(el));
+  }
 
   if (prefersReduced) {
     momentWord.textContent = "moment";
@@ -86,7 +119,6 @@
     if (roast) roast.style.opacity = "1";
     setNavTheme();
     window.addEventListener("scroll", () => {
-      setNavTheme();
       nav.classList.toggle("is-solid", window.scrollY > 24);
     }, { passive: true });
     document.querySelectorAll(".fav-item").forEach((item) => {
@@ -127,11 +159,21 @@
   const lenis = window.BrewnnsScroll?.bindSmoothScroll?.() ?? null;
   if (lenis) lenis.stop();
 
-  document.body.style.overflow = "hidden";
+  // Loader is fixed fullscreen — never lock body overflow.
+  // Stale overflow:hidden breaks vertical scroll in Telegram / WKWebView / Android WebView.
+  const unlockPageScroll = () => {
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    document.body.classList.remove("nav-lock");
+  };
+  unlockPageScroll();
+
   const intro = gsap.timeline({
     defaults: { ease: "power2.out" },
     onComplete: () => {
-      document.body.style.overflow = "";
+      unlockPageScroll();
+      loader.classList.add("is-done");
+      loader.setAttribute("aria-hidden", "true");
       if (lenis) {
         lenis.scrollTo(0, { immediate: true });
         lenis.start();
@@ -141,6 +183,17 @@
       ScrollTrigger.refresh();
     },
   });
+  // Failsafe: if intro stalls in an embedded WebView, restore scrolling.
+  window.setTimeout(() => {
+    unlockPageScroll();
+    if (loader && loader.style.display !== "none") {
+      loader.classList.add("is-done");
+      loader.style.display = "none";
+    }
+    if (lenis && typeof lenis.start === "function") {
+      try { lenis.start(); } catch (_) { /* Lenis optional */ }
+    }
+  }, 3200);
   const loadProxy = { n: 0 };
   intro.to(loadProxy, {
     n: 100,
@@ -410,17 +463,27 @@
     throw new Error("Coffee for Right Now section markup is missing.");
   }
   if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-    orderStage.addEventListener("pointermove", (event) => {
+    const crnBox = { left: 0, top: 0, width: 1, height: 1, stale: true };
+    const refreshCrnBox = () => {
       const box = orderStage.getBoundingClientRect();
-      const x = (event.clientX - box.left) / box.width - 0.5;
-      const y = (event.clientY - box.top) / box.height - 0.5;
+      crnBox.left = box.left;
+      crnBox.top = box.top;
+      crnBox.width = box.width || 1;
+      crnBox.height = box.height || 1;
+      crnBox.stale = false;
+    };
+    orderStage.addEventListener("pointerenter", refreshCrnBox, { passive: true });
+    orderStage.addEventListener("pointermove", (event) => {
+      if (crnBox.stale) refreshCrnBox();
+      const x = (event.clientX - crnBox.left) / crnBox.width - 0.5;
+      const y = (event.clientY - crnBox.top) / crnBox.height - 0.5;
       orderStage.style.setProperty("--px", `${(x * 5).toFixed(2)}px`);
       orderStage.style.setProperty("--py", `${(y * 3.5).toFixed(2)}px`);
-    });
+    }, { passive: true });
     orderStage.addEventListener("pointerleave", () => {
       orderStage.style.setProperty("--px", "0px");
       orderStage.style.setProperty("--py", "0px");
-    });
+    }, { passive: true });
   }
   if (isPhone) {
     gsap.fromTo(".crn-kicker", { y: 8, opacity: 0 }, {
@@ -518,15 +581,28 @@
     scrollTrigger: { trigger: ".clock-sec", start: "top 70%", toggleActions: "play none none none" },
   });
 
+  // Solid nav state only — theme comes from IntersectionObserver (not per-frame hit-test).
+  let solidPending = false;
+  const updateNavSolid = () => {
+    solidPending = false;
+    nav.classList.toggle("is-solid", (window.scrollY || window.pageYOffset || 0) > 24);
+  };
   ScrollTrigger.create({
     start: 0,
     end: "max",
-    onUpdate: (self) => {
-      setNavTheme();
-      nav.classList.toggle("is-solid", self.scroll() > 24);
+    onUpdate: () => {
+      if (solidPending) return;
+      solidPending = true;
+      window.requestAnimationFrame(updateNavSolid);
     },
   });
+  setNavTheme();
+  updateNavSolid();
 
   window.addEventListener("load", () => ScrollTrigger.refresh());
-  window.addEventListener("resize", () => ScrollTrigger.refresh());
+  let resizeRefreshTimer = 0;
+  window.addEventListener("resize", () => {
+    window.clearTimeout(resizeRefreshTimer);
+    resizeRefreshTimer = window.setTimeout(() => ScrollTrigger.refresh(), 140);
+  }, { passive: true });
 })();
