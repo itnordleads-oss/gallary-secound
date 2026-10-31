@@ -50,17 +50,33 @@
   }
 
   /**
-   * Lenis must stay desktop-wheel-only.
-   * Telegram / WKWebView / Android WebView often report widths >760 in landscape
-   * and/or lack a reliable coarse pointer — Lenis with syncTouch:false then
-   * owns document scroll while touch never drives it (Issue C).
+   * Capability-based native scroll preference (not a Telegram-only UA hack).
+   * iOS / WKWebView / in-app browsers must own vertical gestures — Lenis with
+   * syncTouch:false can own document scroll while touch never drives it.
    */
+  function isAppleTouchWebKit() {
+    const ua = navigator.userAgent || "";
+    const iOSDevice = /iP(hone|od|ad)/i.test(ua);
+    // iPadOS desktop-UA mode still has multi-touch.
+    const iPadDesktopUA =
+      navigator.platform === "MacIntel"
+      && typeof navigator.maxTouchPoints === "number"
+      && navigator.maxTouchPoints > 1;
+    return (iOSDevice || iPadDesktopUA) && /WebKit/i.test(ua);
+  }
+
   function preferNativeScroll() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+    // Any Apple touch WebKit (Safari + Telegram/WKWebView) → native document scroll.
+    if (isAppleTouchWebKit()) return true;
     // Tablets + phones + any no-hover environment → native document scroll.
     if (window.matchMedia("(max-width: 1100px)").matches) return true;
     if (window.matchMedia("(pointer: coarse)").matches) return true;
     if (window.matchMedia("(hover: none)").matches) return true;
+    if ((navigator.maxTouchPoints || 0) > 0
+      && !window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      return true;
+    }
     // Require clear desktop fine-pointer + hover before enabling Lenis.
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return true;
     return false;
@@ -69,6 +85,7 @@
   function bindSmoothScroll() {
     if (preferNativeScroll()) {
       document.documentElement.dataset.scrollMode = "native";
+      document.documentElement.classList.remove("lenis", "lenis-smooth", "lenis-scrolling");
       return null;
     }
     if (typeof Lenis === "undefined" || typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
@@ -99,12 +116,13 @@
   window.BrewnnsScroll = {
     SCRUB,
     preferNativeScroll,
+    isAppleTouchWebKit,
     heroScrollTrigger,
     heroTravelTrigger,
     clockScrollTrigger,
     favoritesScrollTrigger,
     cityScrollTrigger,
     bindSmoothScroll,
-    revision: "web2-q3",
+    revision: "web2-ios1",
   };
 })();

@@ -12,23 +12,43 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: auto; }
+/*
+  iOS/WebKit: overflow-x on BOTH html and body can break vertical document scrolling
+  inside Safari and in-app WKWebViews (including Telegram). Keep overflow-x on body only.
+*/
+html {
+  scroll-behavior: auto;
+  height: auto;
+  overflow-x: visible;
+  overflow-y: visible;
+}
 html.lenis, html.lenis body { height: auto; }
 html.lenis.lenis-smooth { scroll-behavior: auto !important; }
-/* overflow-x: hidden (not clip) — older Telegram/Android WebViews mishandle clip. */
-html, body {
-  overflow-x: hidden;
-  overscroll-behavior-y: auto;
-  /* Keep vertical panning native for embedded WebViews; do not use touch-action: none. */
-  touch-action: pan-y;
-}
-body.nav-lock { overflow: hidden; }
 body {
   margin: 0;
   font-family: var(--body);
   background: var(--bg);
   color: #f6f2ec;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Vertical pan for page; never touch-action: none on body. */
+  touch-action: pan-y;
+}
+/* Menu-open lock — must always be cleared when menu closes. */
+body.nav-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html[data-scroll-mode="native"] {
+  /* Guarantee Lenis class leftovers never trap WebKit scroll. */
+}
+html[data-scroll-mode="native"].lenis,
+html[data-scroll-mode="native"].lenis-smooth {
+  height: auto !important;
+  scroll-behavior: auto !important;
 }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; background: none; border: 0; cursor: pointer; color: inherit; }
@@ -77,8 +97,9 @@ em {
   touch-action: none;
 }
 .loader.is-done {
-  pointer-events: none;
+  pointer-events: none !important;
   touch-action: pan-y;
+  visibility: hidden;
 }
 .loader-count {
   font-family: var(--display);
@@ -1133,7 +1154,7 @@ html[data-webgl="on"] .clock-fallback { display: none; }
   min-height: min(88svh, 780px);
   margin-top: -2px;
   padding: 2.75rem 3vw 3.5rem;
-  overflow-x: clip;
+  overflow-x: hidden;
   overflow-y: visible;
   background:
     linear-gradient(180deg, #0b0907 0%, transparent 18%),

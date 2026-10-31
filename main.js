@@ -26,10 +26,25 @@
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   window.scrollTo(0, 0);
 
+  const unlockPageScroll = () => {
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    document.body.classList.remove("nav-lock");
+  };
+
   const setMenu = (open) => {
     nav.classList.toggle("open", open);
     menuBtn.setAttribute("aria-expanded", String(open));
-    document.body.classList.toggle("nav-lock", open && isPhone);
+    if (open && isPhone) {
+      document.body.classList.add("nav-lock");
+    } else {
+      document.body.classList.remove("nav-lock");
+      // Always clear any leftover inline locks after menu close (iOS WebView safety).
+      if (!open) unlockPageScroll();
+    }
   };
 
   menuBtn.addEventListener("click", () => setMenu(!nav.classList.contains("open")));
@@ -39,6 +54,13 @@
   phoneQuery.addEventListener("change", (event) => {
     isPhone = event.matches;
     if (!isPhone) setMenu(false);
+  });
+  // Orientation / bfcache / tab return must never leave a stale scroll lock.
+  window.addEventListener("pageshow", () => {
+    if (!nav.classList.contains("open")) unlockPageScroll();
+  }, { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !nav.classList.contains("open")) unlockPageScroll();
   });
 
   for (let hour = 1; hour <= 12; hour += 1) {
@@ -148,6 +170,11 @@
   }
 
   gsap.registerPlugin(ScrollTrigger);
+  // Keep ScrollTrigger as a follower of document scroll — never normalize/hijack iOS touch.
+  ScrollTrigger.config({ ignoreMobileResize: true });
+  if (typeof ScrollTrigger.normalizeScroll === "function") {
+    ScrollTrigger.normalizeScroll(false);
+  }
 
   const SCRUB = window.BrewnnsScroll?.SCRUB ?? 0.5;
   const heroScrub = window.BrewnnsScroll?.heroScrollTrigger?.() ?? {
@@ -159,21 +186,24 @@
   const lenis = window.BrewnnsScroll?.bindSmoothScroll?.() ?? null;
   if (lenis) lenis.stop();
 
-  // Loader is fixed fullscreen — never lock body overflow.
-  // Stale overflow:hidden breaks vertical scroll in Telegram / WKWebView / Android WebView.
-  const unlockPageScroll = () => {
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
-    document.body.classList.remove("nav-lock");
-  };
+  // Loader is fixed fullscreen — never lock body overflow for the intro.
+  // Stale overflow:hidden / leftover Lenis classes break iOS WKWebView scroll.
   unlockPageScroll();
+  document.documentElement.classList.remove("lenis-scrolling");
+
+  const retireLoader = () => {
+    loader.classList.add("is-done");
+    loader.setAttribute("aria-hidden", "true");
+    loader.style.display = "none";
+    loader.style.pointerEvents = "none";
+    loader.style.visibility = "hidden";
+  };
 
   const intro = gsap.timeline({
     defaults: { ease: "power2.out" },
     onComplete: () => {
       unlockPageScroll();
-      loader.classList.add("is-done");
-      loader.setAttribute("aria-hidden", "true");
+      retireLoader();
       if (lenis) {
         lenis.scrollTo(0, { immediate: true });
         lenis.start();
@@ -186,14 +216,16 @@
   // Failsafe: if intro stalls in an embedded WebView, restore scrolling.
   window.setTimeout(() => {
     unlockPageScroll();
-    if (loader && loader.style.display !== "none") {
-      loader.classList.add("is-done");
-      loader.style.display = "none";
-    }
-    if (lenis && typeof lenis.start === "function") {
+    retireLoader();
+    // Never start Lenis when native scroll mode was selected.
+    if (
+      lenis
+      && document.documentElement.dataset.scrollMode === "lenis"
+      && typeof lenis.start === "function"
+    ) {
       try { lenis.start(); } catch (_) { /* Lenis optional */ }
     }
-  }, 3200);
+  }, 2800);
   const loadProxy = { n: 0 };
   intro.to(loadProxy, {
     n: 100,
@@ -205,7 +237,7 @@
   }, 0);
   intro.to(loaderFill, { height: "100%", duration: 0.32, ease: "power1.inOut" }, 0);
   intro.to(loader, { yPercent: -110, duration: 0.24, ease: "power3.inOut" }, "+=0.02");
-  intro.set(loader, { display: "none" });
+  intro.add(() => retireLoader());
 
   // Staged hero entrance (~1s). Mobile uses ~50% travel distances.
   const introY = isPhone ? 9 : 18;
